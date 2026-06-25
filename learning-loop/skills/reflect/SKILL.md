@@ -39,7 +39,17 @@ warstwie epizodycznej. Tak, fakt → pamięć. Tak, procedura → skill.
 3. **Procedury → skille** (patrz Bramka skilla).
 4. **Handoff** (tylko jeśli używasz `remember`/`.remember/`): zaktualizuj
    `.remember/remember.md`. Jeśli nie używasz tej warstwy — pomiń krok.
-5. **Tarcie ze skilli (capture).** Dla skilli, których FAKTYCZNIE użyłeś w tej sesji
+5. **Atrybucja kandydatur tarcia (auto-capture).** Hook `friction-capture` zapisał surowe
+   awarie narzędzi tej sesji. Wczytaj najświeższy plik kandydatur (komenda niżej) i dla
+   KAŻDEGO wpisu oceń — znając kontekst sesji i to, których skilli FAKTYCZNIE użyłeś:
+   - **Realne tarcie powiązane z użytym skillem** → dopisz wpis do właściwego
+     `<skill>/FRICTION.md` w istniejącym formacie (`expected`/`actual`/`fix-hint`),
+     tłumacząc surową awarię na rozjazd `expected` ≠ `actual`.
+   - **Błąd przejściowy / literówka / niepowiązany ze skillem** → odrzuć, nie zapisuj.
+
+   To TY przypisujesz (hook tego nie robi — nie zna aktywnego skilla). Po przetworzeniu
+   oznacz plik jako `.processed` (komenda niżej) — odwracalnie, by nie przerabiać go ponownie.
+6. **Tarcie ze skilli (capture).** Dla skilli, których FAKTYCZNIE użyłeś w tej sesji
    i które pokazały tarcie: dopisz wpis do `<skill-dir>/FRICTION.md`. Tylko realne
    tarcie z tej sesji. Naprawia `/skill-review`. Format:
    ```markdown
@@ -48,6 +58,32 @@ warstwie epizodycznej. Tak, fakt → pamięć. Tak, procedura → skill.
    - **actual:** <co faktycznie wyszło / dlaczego zawiodło>
    - **fix-hint:** <opcjonalnie>
    ```
+
+## Komendy — kandydatury tarcia
+
+Wczytaj najświeższy plik kandydatur (bieżąca sesja):
+
+```bash
+node -e '
+const fs=require("fs"),path=require("path"),os=require("os");
+const dir=path.join(os.homedir(),".claude","learning-loop","friction-candidates");
+let files=[]; try{files=fs.readdirSync(dir).filter(f=>f.endsWith(".jsonl"));}catch{}
+if(!files.length){console.log("(brak kandydatur tarcia)");process.exit(0);}
+files=files.map(f=>({f,m:fs.statSync(path.join(dir,f)).mtimeMs})).sort((a,b)=>b.m-a.m);
+const latest=path.join(dir,files[0].f);
+console.log("PLIK:",latest);
+for(const ln of fs.readFileSync(latest,"utf8").split("\n").filter(Boolean)) console.log(ln);
+'
+```
+
+Po przypisaniu oznacz plik jako przetworzony (odwracalnie):
+
+```bash
+node -e '
+const fs=require("fs");const p=process.argv[1];
+fs.renameSync(p,p+".processed");console.log("oznaczono:",p+".processed");
+' "<sciezka-pliku-z-PLIK:>"
+```
 
 ## Fakty (pamięć) — zawsze per-projekt
 

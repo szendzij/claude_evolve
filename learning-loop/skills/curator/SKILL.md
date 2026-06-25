@@ -107,6 +107,40 @@ for(const [f,n] of seen) if(n>1) console.log(`DUPLIKAT: ${f} x${n}`);
 ' "<sciezka-do-katalogu-memory>"
 ```
 
+## Higiena kandydatur tarcia
+
+Hook `friction-capture` zostawia pliki `~/.claude/learning-loop/friction-candidates/*.{jsonl,processed}`
+— to **transientne logi sesji**, nie skille. Raportuj te starsze niż **7 dni** i — po
+potwierdzeniu usera — usuń (to logi, nie podlegają regule „nigdy nie kasuj"; ale pytasz przed usunięciem).
+
+Raport (pliki > 7 dni):
+
+```bash
+node -e '
+const fs=require("fs"),path=require("path"),os=require("os");
+const dir=path.join(os.homedir(),".claude","learning-loop","friction-candidates");
+const cutoff=Date.now()-7*864e5;
+let files=[]; try{files=fs.readdirSync(dir);}catch{console.log("(brak katalogu kandydatur)");process.exit(0);}
+let n=0;
+for(const f of files){const m=fs.statSync(path.join(dir,f)).mtimeMs;
+  if(m<cutoff){console.log("STARY:",f,new Date(m).toISOString().slice(0,10));n++;}}
+if(!n)console.log("(brak plików > 7 dni)");
+'
+```
+
+Usunięcie (po potwierdzeniu):
+
+```bash
+node -e '
+const fs=require("fs"),path=require("path"),os=require("os");
+const dir=path.join(os.homedir(),".claude","learning-loop","friction-candidates");
+const cutoff=Date.now()-7*864e5;let n=0;
+for(const f of fs.readdirSync(dir)){const p=path.join(dir,f);
+  if(fs.statSync(p).mtimeMs<cutoff){fs.unlinkSync(p);n++;}}
+console.log("usunieto",n,"plikow > 7 dni");
+'
+```
+
 ## Verification
 
 - Raport zawiera skille `origin: reflect-loop` z OBU korzeni, niepinowane, posortowane wg mtime rosnąco.
