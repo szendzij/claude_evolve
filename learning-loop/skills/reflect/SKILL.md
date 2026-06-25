@@ -55,11 +55,16 @@ Wszystkie fakty zapisuj do pamięci **per-projekt**, niezależnie od `type`.
 - Cel: katalog pamięci podany przez harness w kontekście tej sesji (per-projekt,
   np. `~/.claude/projects/<hash>/memory/`). Utwórz, jeśli trzeba. Fakt = jeden plik
   `<slug>.md` z frontmatter (`name`, `description`, `metadata.type`) + linia w `MEMORY.md`.
-- Jeśli harness NIE podaje ścieżki pamięci → fallback: `./memory/` w katalogu projektu
-  + **jawne ostrzeżenie**, że harness tego nie wczyta automatycznie.
+- Jeśli harness NIE podaje ścieżki pamięci → **NIE zapisuj po cichu** (zapis trafiłby
+  w miejsce, którego harness nie wczyta = zapis-widmo). Powiedz userowi wprost: „Harness
+  nie udostępnił katalogu pamięci tej sesji; fakt NIE został zapisany. Opcje: (a) podaj
+  ścieżkę pamięci, (b) dopiszę fakt do `CLAUDE.md` projektu jako jawną regułę, (c) pomiń."
+  Czekaj na decyzję usera — żadnego zapisu w nieczytane miejsce.
 - NIE wynoś faktów user-level do globalnego `~/.claude/`. Uniwersalne preferencje to
   domena ręcznie kuratorowanego `~/.claude/CLAUDE.md` / `rules/` — pętla ich nie dotyka.
   (User pracuje inaczej w różnych projektach; globalny fakt by skaził kontekst.)
+- **Zwięzłość indeksu:** dokładnie JEDNA linia w `MEMORY.md` na fakt; hook ≤ ~80 znaków.
+  `MEMORY.md` ładuje się co sesję — długi indeks puchnie kontekst.
 
 ## Bramka skilla (dwustopniowa)
 
@@ -76,8 +81,29 @@ Awans na globalny (`~/.claude/skills/`) tylko gdy WSZYSTKIE 3:
 2. **Tylko uniwersalne narzędzia/koncepty** — git, bash, ogólne wzorce; nie bespoke tooling.
 3. **Afirmatywny osąd** — „czy pomoże w niezwiązanym projekcie?", domyślnie NIE.
 
-**Awans przez powtórkę (v1):** jeśli tworzony skill to ta sama procedura, którą znasz
-już z innego projektu → twórz od razu globalnie (powtórzenie = dowód przenośności).
+**Awans przez powtórkę (oparty o skan, nie o pamięć).** Przy tworzeniu skilla skanujesz
+istniejące skille globalne (`~/.claude/skills/*`) komendą niżej i szukasz odpowiednika:
+ta sama nazwa kebab LUB bardzo zbliżony `description`. Znaleziony odpowiednik = sprawdzalny
+dowód powtórki → zaproponuj **aktualizację/awans globalnego** zamiast tworzyć projektowy
+duplikat. Brak odpowiednika → zwykła bramka (default projektowy). NIE polegaj na „pamiętam
+to z innego projektu" — pamięć sesji nie przeżywa, liczy się tylko artefakt na dysku.
+
+Komenda — szukaj odpowiednika globalnego (po nazwie i description):
+```bash
+node -e '
+const fs=require("fs"),path=require("path"),os=require("os");
+const want=process.argv[1].toLowerCase();
+const root=path.join(os.homedir(),".claude","skills");
+let es=[]; try{es=fs.readdirSync(root,{withFileTypes:true});}catch{}
+for(const e of es){
+  if(!e.isDirectory()||e.name.startsWith(".")) continue;
+  const f=path.join(root,e.name,"SKILL.md"); if(!fs.existsSync(f)) continue;
+  const fm=(fs.readFileSync(f,"utf8").match(/^---\r?\n([\s\S]*?)\r?\n---/)||[,""])[1];
+  const desc=((fm.match(/^description:\s*(.+)$/m)||[])[1]||"").toLowerCase();
+  if(e.name.toLowerCase()===want || desc.includes(want) || want.includes(e.name.toLowerCase()))
+    console.log("ODPOWIEDNIK:", e.name, "->", desc);
+}' "<nazwa-lub-fraza>"
+```
 
 ## Tworzenie skilla
 
@@ -99,10 +125,51 @@ już z innego projektu → twórz od razu globalnie (powtórzenie = dowód przen
 - Skill złożony → deleguj do `skill-creator`, potem dodaj `metadata.origin: reflect-loop`.
 - Aktualizując istniejący skill `origin: reflect-loop` — edytuj (mtime sygnalizuje curatorowi życie).
 
+### Walidacja (deterministyczna — uruchom, nie zgaduj)
+
+Po zapisaniu nowego `SKILL.md` uruchom lint frontmatter + heurystykę śladów projektu.
+Frontmatter to twardy wymóg; ślady projektu to **sygnał** wspierający Etap 2 bramki (nie blok).
+
+```bash
+node -e '
+const fs=require("fs");
+const t=fs.readFileSync(process.argv[1],"utf8");
+const fm=(t.match(/^---\r?\n([\s\S]*?)\r?\n---/)||[,""])[1];
+const body=t.replace(/^---\r?\n[\s\S]*?\r?\n---/,"");
+const probs=[];
+const name=(fm.match(/^name:\s*(.+)$/m)||[])[1];
+if(!name||!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name.trim())) probs.push("name: brak lub nie-kebab");
+const desc=(fm.match(/^description:\s*(.+)$/m)||[])[1];
+if(!desc){ probs.push("description: brak"); }
+else { const d=desc.trim(); if(d.length>60) probs.push("description: >60 ("+d.length+")"); if(!d.endsWith(".")) probs.push("description: bez kropki na koncu"); }
+if(!/origin:\s*reflect-loop/.test(fm)) probs.push("metadata.origin: brak reflect-loop");
+if(!/created:/.test(fm)) probs.push("metadata.created: brak");
+if(!/origin-project:/.test(fm)) probs.push("metadata.origin-project: brak");
+const traces=[];
+if(/[A-Za-z]:\\|\/(home|Users)\//.test(body)) traces.push("sciezka absolutna");
+if(/\b(npm|yarn|pnpm)\s+(run\s+)?\S+/.test(body)) traces.push("skrypt npm/yarn/pnpm");
+if(/\b(react|vue|angular|django|rails|spring|laravel|next\.js)\b/i.test(body)) traces.push("nazwa frameworka");
+console.log(probs.length?("FRONTMATTER — PROBLEMY:\n- "+probs.join("\n- ")):"FRONTMATTER OK");
+console.log(traces.length?("SLADY PROJEKTU (sygnal -> rozwaz projektowy):\n- "+traces.join("\n- ")):"BRAK sladow projektu");
+' "<sciezka-do-SKILL.md>"
+```
+
+Kolizja nazw — przy zapisie skilla PROJEKTOWEGO potwierdź, czy globalny o tej nazwie istnieje:
+
+```bash
+node -e '
+const fs=require("fs"),path=require("path"),os=require("os");
+const name=process.argv[1];
+const g=path.join(os.homedir(),".claude","skills",name);
+console.log(fs.existsSync(g)?("KOLIZJA: globalny \""+name+"\" istnieje -> przebije projektowy; dodaj wyroznik"):"BRAK kolizji nazwy");
+' "<nazwa>"
+```
+
 ## Verification
 
 - Każdy nowy plik pamięci ma odpowiadającą linię w `MEMORY.md`.
-- Fakty trafiły do pamięci per-projekt (lub fallback z ostrzeżeniem), NIE do globalnego `rules/`.
-- Każdy nowy skill ma `origin: reflect-loop`, `description` ≤ 60, `origin-project`.
-- Skill projektowy nie koliduje nazwą z globalnym (albo dostał wyróżnik).
+- Fakty trafiły do pamięci per-projekt; przy braku ścieżki — żadnego zapisu-widma, decyzja u usera.
+- Lint frontmatter przebiega bez „PROBLEMY" (origin/created/origin-project obecne, description ≤ 60 z kropką, name kebab).
+- Dla skilla projektowego komenda kolizji potwierdziła „BRAK kolizji" lub dodano wyróżnik.
+- Heurystyka śladów projektu uruchomiona; ślady wzięte pod uwagę w Etapie 2 bramki.
 - Wpisy `FRICTION.md` mają `expected` i `actual`.

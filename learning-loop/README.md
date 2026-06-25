@@ -90,9 +90,9 @@ się wyłącznie tym, co trwałe: faktami, procedurami i handoffem.
  └──────────────────────────┘  Tylko gdy jest dowód — żadnego „ulepszania w ciemno".
             │
             ▼
- ┌──────────────────────────┐  Sprzątaczka. Okresowo archiwizuje auto-skille
- │        /curator           │  nieruszane > 30 dni. Nigdy nie kasuje.
- └──────────────────────────┘
+ ┌──────────────────────────┐  Sprzątaczka. Raportuje auto-skille (globalne i projektowe)
+ │        /curator           │  wg mtime do przeglądu; archiwizuje po Twojej decyzji.
+ └──────────────────────────┘  Nigdy nie kasuje.
 ```
 
 **Cykl życia jednego skilla:** `/reflect` **rodzi** go → `/skill-review` **dojrzewa** go na
@@ -126,8 +126,9 @@ wypracowałeś coś wartego utrwalenia.
 
 **Jak dokładnie (procedura):**
 1. Przejrzyj sesję — co zadziałało, co było nieoczywiste, jakie zapadły decyzje.
-2. **Fakt** → zapisz do pamięci per-projekt: plik `<slug>.md` z frontmatter
-   (`name`, `description`, `metadata.type`) + linia w `MEMORY.md`.
+2. **Fakt** → zapisz do pamięci **per-projekt** (`~/.claude/projects/<hash>/memory/`): plik
+   `<slug>.md` z frontmatter (`name`, `description`, `metadata.type`) + linia w `MEMORY.md`;
+   przy braku ścieżki pętla NIE zapisuje po cichu — pyta Ciebie, co zrobić.
 3. **Procedura** → przepuść przez **Bramkę skilla** (niżej) i zapisz jako skill.
 4. **Handoff** → zaktualizuj `.remember/remember.md` (pomijane, jeśli nie używasz `remember`).
 5. **Tarcie** → dla skilli, których *naprawdę* użyłeś w tej sesji i które zawiodły,
@@ -143,7 +144,7 @@ wynosi faktów do globalnej konfiguracji (to domena Twojego ręcznego `~/.claude
 **Kiedy:** ręcznie, gdy chcesz przerobić nazbierane tarcie na realne ulepszenia.
 
 **Jak dokładnie (procedura):**
-1. Skanuje `~/.claude/skills/*/FRICTION.md`, zbiera skille z ≥1 ważnym wpisem.
+1. Skanuje `~/.claude/skills/*/FRICTION.md` **oraz** `./.claude/skills/*/FRICTION.md`, zbiera skille z ≥1 ważnym wpisem.
 2. Dla każdego wczytuje `SKILL.md` + ważne wpisy tarcia.
 3. Proponuje **diff zakotwiczony w dowodzie** — wprost wskazuje, którego wpisu
    `expected`/`actual` dotyczy poprawka.
@@ -151,25 +152,33 @@ wynosi faktów do globalnej konfiguracji (to domena Twojego ręcznego `~/.claude
 5. Czyści skonsumowane wpisy z `FRICTION.md`. Wpis świadomie nienaprawiany dostaje
    `won't-fix: <powód>` i zostaje pominięty na przyszłość.
 
-**Twarda zasada — evidence-only:** brak ważnego wpisu (`expected` *i* `actual`) → **brak
-poprawki.** Nigdy nie wymyśla ulepszeń „dla jakości", nigdy nie ocenia skilla na zimno.
-Tyka **wyłącznie** `~/.claude/skills/*` — skille pluginów leżą w innym drzewie i są nietykalne.
+**Twarda zasada — evidence-only:** brak zaobserwowanego dowodu (`expected` ≠ `actual`) — żadnej zmiany.
+Obejmuje skille globalne (`~/.claude/skills/`) i projektowe (`./.claude/skills/`).
+Nigdy nie wymyśla ulepszeń „dla jakości", nigdy nie ocenia skilla na zimno.
+Tyka **wyłącznie** auto-skille (`origin: reflect-loop`) — skille pluginów i Twoje ręczne skille
+leżą poza zasięgiem.
 
 ### `/curator` — higiena cyklu życia (sprzątaczka)
 
-**Co robi:** archiwizuje auto-skille, które dawno nie były ruszane.
+**Co robi:** **Raportuje** wszystkie auto-skille (globalne i projektowe) posortowane wg `mtime` — jako
+sygnał „dawno nieedytowane do przeglądu", NIE wyrok. Decyzję per skill podejmujesz Ty.
+Archiwizuje (**NIGDY nie kasuje**) poza root odkrywania: `~/.claude/skills-archive/` lub
+`./.claude/skills-archive/`. Pomija `pinned: true`. Czyści też martwe/duplikatowe linie `MEMORY.md`.
 
-**Kiedy:** okresowo (np. raz w miesiącu), gdy `~/.claude/skills/` się rozrasta.
+**Kiedy:** okresowo (np. raz w miesiącu), gdy `~/.claude/skills/` lub `./.claude/skills/` się rozrasta.
 
 **Jak dokładnie (procedura):**
-1. Skanuje `~/.claude/skills/*/SKILL.md`, czyta frontmatter (`origin`, `pinned`) i `mtime` pliku.
-2. Kandydat = `origin: reflect-loop` **i** `pinned != true` **i** `mtime` starszy niż **30 dni**.
-3. Pokazuje listę kandydatów (nazwa + data ostatniej modyfikacji) — **nie archiwizuje sam**.
-4. Po Twoim potwierdzeniu przenosi wybrane do `~/.claude/skills/.archive/<name>/`.
+1. Skanuje auto-skille globalne (`~/.claude/skills/*/SKILL.md`) i projektowe (`./.claude/skills/*/SKILL.md`),
+   czyta frontmatter (`origin`, `pinned`) i `mtime` pliku.
+2. **Raportuje** wszystkie auto-skille (`origin: reflect-loop`, `pinned != true`) posortowane wg `mtime`
+   — bez progu czasowego, bez wyroku. Najdawniej ruszane na górze, jako sygnał do przeglądu.
+3. Po Twojej decyzji per skill przenosi wybrane poza root odkrywania:
+   `~/.claude/skills-archive/<name>/` (skill globalny) lub `./.claude/skills-archive/<name>/` (skill projektowy).
+4. Czyści martwe/duplikatowe linie w `MEMORY.md` (higiena indeksu).
 
-**Twarde zasady:** **NIGDY nie kasuje** — tylko przenosi do `.archive/` (przywrócenie =
-przeniesienie z powrotem). Decyzja oparta wyłącznie na twardej metryce (`mtime`), bez oceny
-treści przez LLM. `pinned: true` wyłącza skill z każdej tranzycji.
+**Twarde zasady:** **NIGDY nie kasuje** — tylko przenosi do `skills-archive/` **poza** root odkrywania
+(przywrócenie = przeniesienie z powrotem). Curator **raportuje**, decyzję podejmujesz Ty; bez progu
+czasowego i bez oceny treści przez LLM. `pinned: true` wyłącza skill z każdej tranzycji.
 
 ### Stop hook (`reflection-gate`) — cichy strażnik
 
@@ -180,8 +189,9 @@ o `/reflect` i dokleja `git diff --stat` jako rozbieg.
 cyklu (zabezpieczenie przed pętlą przez flagę `stop_hook_active`).
 
 **Dlaczego node, a nie bash:** napisany w czystym Node.js i uruchamiany w *exec form*
-(`{command: "node", args: [...]}`), bez powłoki. Dzięki temu działa **identycznie na Windows,
-Linux i macOS** — nie wymaga Git for Windows ani `sh`.
+(`{command: "node", args: [...]}`), bez powłoki. Dzięki temu jest **napisany OS-niezależnie**
+(Windows / Linux / macOS) — nie wymaga Git for Windows ani `sh`. Zweryfikowany na Windows;
+na Linux/macOS oczekiwany identyczny przebieg (zautomatyzowany test hooka przechodzi).
 
 ---
 
@@ -215,8 +225,10 @@ globalny (`~/.claude/skills/`) **tylko gdy spełnione WSZYSTKIE trzy**:
 3. **Afirmatywny osąd** — „czy realnie pomoże w *niezwiązanym* projekcie?". Domyślna
    odpowiedź to **nie** — globalny zasięg trzeba sobie zasłużyć.
 
-**Skrót przez powtórkę:** jeśli tworzysz dokładnie tę samą procedurę, którą znasz już
-z innego projektu — twórz od razu globalnie. Powtórzenie *jest* dowodem przenośności.
+**Skrót przez powtórkę:** przy zapisie skilla pętla skanuje istniejące skille globalne
+(`~/.claude/skills/*`); jeśli znajdzie odpowiednik po nazwie kebab lub zbliżonym `description`,
+proponuje awans/aktualizację globalnego zamiast tworzyć projektowy duplikat. Liczy się
+artefakt na dysku, nie „pamięć" z innej sesji.
 
 **Kolizja nazw:** zapisując skill projektowy, pętla sprawdza, czy istnieje globalny o tej
 samej nazwie. Jeśli tak — globalny **przebije** projektowy (precedencja Claude Code), więc
@@ -241,8 +253,9 @@ Format wpisu tarcia:
 
 - Curator **nigdy nie kasuje** — archiwizuje odwracalnie.
 - Każda poprawka skilla i każdy awans na globalny — **za Twoim potwierdzeniem**.
-- Skanery operują **wyłącznie** na Twoich auto-skillach (`origin: reflect-loop`
-  w `~/.claude/skills/`). Skille pluginów i Twoje ręczne skille są poza zasięgiem.
+- Skanery operują **wyłącznie** na Twoich auto-skillach (`origin: reflect-loop`) — zarówno
+  globalnych (`~/.claude/skills/`), jak i projektowych (`./.claude/skills/`). Skille pluginów
+  i Twoje ręczne skille są poza zasięgiem.
 
 ---
 
@@ -256,6 +269,7 @@ Format wpisu tarcia:
 | Proceduralna (globalna) | procedury przenośne | `~/.claude/skills/` |
 | Tarcie | dowód do poprawki | `<skill>/FRICTION.md` |
 | Przejściowa | handoff | `.remember/remember.md` |
+| Archiwum | wycofane auto-skille | `~/.claude/skills-archive/` lub `./.claude/skills-archive/` |
 
 ---
 
@@ -279,20 +293,23 @@ Lokalny test bez instalacji: `claude --plugin-dir /ścieżka/do/learning-loop`.
   `claude --version`). Udokumentowane minimum: **2.1.128**. Manifest pluginu nie ma pola do
   wymuszenia wersji, stąd ta nota tutaj.
 
-Hook działa identycznie na **Windows / Linux / macOS** (exec form `node`, bez powłoki,
-bez Git for Windows).
+Hook jest **napisany OS-niezależnie** dla **Windows / Linux / macOS** (exec form `node`, bez
+powłoki, bez Git for Windows). Zweryfikowany na Windows; zautomatyzowany test hooka przechodzi.
 
 ## Zależności miękkie (degradują łagodnie)
 
 - **`remember` / `.remember/`** — handoff to zwykły zapis `.md`. Bez tej warstwy krok handoffu
   jest po prostu pomijany; reszta pętli działa normalnie.
-- **Wbudowana pamięć per-projekt** — gdy harness nie poda ścieżki pamięci, fakty mają fallback
-  `./memory/` w katalogu projektu + **jawne ostrzeżenie**, że harness tego nie wczyta sam.
+- **Wbudowana pamięć per-projekt** — gdy harness nie poda ścieżki pamięci, pętla **NIE zapisuje
+  po cichu** (taki zapis trafiłby w miejsce, którego harness nie wczyta = zapis-widmo). Mówi wprost,
+  że fakt nie został zapisany, i czeka na Twoją decyzję: podać ścieżkę pamięci, dopisać fakt do
+  `CLAUDE.md` projektu jako jawną regułę, albo pominąć.
 
 ## Czego świadomie NIE robi (YAGNI)
 
-- **Brak liczników użycia i oceny skilli przez LLM** — curator decyduje wyłącznie na twardej
-  metryce `mtime`. Zero infrastruktury do utrzymania, zero subiektywnych ocen.
+- **Brak liczników użycia i oceny skilli przez LLM** — curator tylko **raportuje** auto-skille
+  posortowane wg twardej metryki `mtime`; decyzję podejmujesz Ty. Zero infrastruktury do
+  utrzymania, zero subiektywnych ocen, zero progu czasowego.
 - **Brak wynoszenia faktów user-level do globalnej konfiguracji** — to domena Twojego ręcznie
   kuratorowanego `~/.claude/`. Pętla celowo tego nie dotyka.
 - **Brak hooków na każdą akcję** — tylko jeden lekki Stop hook. Im mniej automatyki w tle,
