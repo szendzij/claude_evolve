@@ -1,52 +1,67 @@
 # claude_evolve
 
-Marketplace pluginów Claude Code. Obecnie zawiera jeden plugin: **`learning-loop`**.
+Marketplace pluginów do **Claude Code** — miejsce, z którego instalujesz pluginy komendą
+`/plugin`. Obecnie zawiera jeden: **`learning-loop`**, zamkniętą pętlę samouczenia.
+
+> **Czym jest marketplace Claude Code?** To repozytorium z plikiem
+> `.claude-plugin/marketplace.json`, które wskazuje, jakie pluginy są dostępne i skąd je
+> wziąć. Dodajesz je raz (`/plugin marketplace add ...`), a potem instalujesz z niego
+> dowolny plugin po nazwie.
 
 ---
 
-## learning-loop
+## learning-loop — zamknięta pętla samouczenia
 
-**Zamknięta pętla samouczenia dla Claude Code** — inspirowana *closed learning loop*
-z Hermes Agenta. Sprawia, że Claude **uczy się z każdej sesji**: wyciąga trwałe wnioski
-do pamięci, dojrzewa swoje umiejętności na podstawie realnego tarcia i archiwizuje te
-nieużywane. W pełni lokalnie, bez zewnętrznych usług, niezależnie od systemu (Windows/Linux/macOS).
+### Po co to istnieje
 
-Domyślnie Claude zaczyna każdą sesję „od zera". Ten plugin nakłada warstwę **pamięci
-i refleksji**, żeby trwałe fakty i wypracowane procedury przeżywały między sesjami.
+Claude Code domyślnie **nie pamięta nic między sesjami**. Każda rozmowa startuje od zera:
+wczorajsze decyzje, wypracowane procedury i raz już naprawione błędy — wszystko znika.
+`learning-loop` nakłada na Claude warstwę **pamięci i refleksji**, dzięki której trwała
+wiedza przeżywa między sesjami, a wypracowane procedury z czasem **same się ulepszają**
+na podstawie tego, co naprawdę zawiodło w praktyce.
 
-### Jak działa
+Inspiracja: *closed learning loop* z Hermes Agenta. Tu rozszerzona o wymiar, którego
+Hermesowi brakowało — **rozdział wiedzy na poszczególne projekty**, żeby kontekst projektu A
+nie skaził projektu B.
+
+### Jak działa — w skrócie
 
 ```
-Koniec sesji z niezacommitowanymi zmianami
-        │  Stop hook (reflection-gate) → przypomina o /reflect
+ koniec sesji z niezacommitowaną pracą
+        │  Stop hook → przypomina: uruchom /reflect
         ▼
-/reflect       fakty → pamięć per-projekt · procedury → skill · handoff · tarcie → FRICTION.md
+ /reflect        sortuje wnioski:  fakt          → pamięć per-projekt
+        │                          procedura     → skill (projektowy/globalny)
+        │                          handoff       → .remember/remember.md
+        │                          tarcie skilla → <skill>/FRICTION.md
         ▼
-/skill-review  dowód z FRICTION.md → poprawka SKILL.md  (evidence-only)
+ /skill-review   dowód z FRICTION.md  →  poprawka SKILL.md   (tylko gdy jest dowód)
         ▼
-/curator       archiwizuje martwe auto-skille (> 30 dni, nigdy nie kasuje)
+ /curator        archiwizuje martwe auto-skille (mtime > 30 dni; nigdy nie kasuje)
 ```
 
 Cykl życia skilla: **`/reflect` rodzi → `/skill-review` dojrzewa → `/curator` archiwizuje.**
 
-### Komendy
+### Co dostajesz po instalacji
 
-| Komenda | Co robi |
+| Element | Rola |
 |---|---|
-| `/reflect` | Refleksja na koniec sesji: routuje fakty → pamięć per-projekt, procedury → skille, aktualizuje handoff, zapisuje tarcie skilli. |
-| `/skill-review` | Zamienia zebrane tarcie (`FRICTION.md`) w konkretne poprawki skilli. Evidence-only. |
-| `/curator` | Archiwizuje (odwracalnie) auto-skille nieruszane > 30 dni. |
-
-Plus **Stop hook**, który przypomina o `/reflect`, gdy kończysz sesję z niezacommitowaną pracą.
+| `/reflect` | Sortownia wiedzy na koniec sesji. Każdy trwały wniosek kieruje do właściwej warstwy (fakt → pamięć per-projekt, procedura → skill, handoff, tarcie → `FRICTION.md`). |
+| `/skill-review` | Warsztat. Zamienia zebrane tarcie (`FRICTION.md`) w konkretne poprawki `SKILL.md`. **Evidence-only**: bez zaobserwowanego dowodu — żadnej zmiany. |
+| `/curator` | Sprzątaczka. Archiwizuje (odwracalnie, **nigdy nie kasuje**) auto-skille nieruszane > 30 dni. |
+| Stop hook | Cichy strażnik — przypomina o `/reflect`, gdy kończysz sesję z niezacommitowaną pracą. OS-niezależny (czysty `node`). |
 
 ### Zasada nadrzędna
 
-**Silnik globalny, wytwory domyślnie do bieżącego projektu** — żeby konteksty projektów się nie mieszały:
-- **Fakty** → zawsze pamięć per-projekt. Uniwersalne preferencje zostają w Twoim ręcznym `~/.claude/`.
-- **Skille** → bramka dwustopniowa (czy to skill? → globalny czy projektowy?). Domyślnie projektowy
-  (`.claude/skills/`); awans na globalny (`~/.claude/skills/`) tylko po spełnieniu 3 kryteriów.
+**Silnik globalny, wytwory domyślnie do bieżącego projektu** — żeby konteksty projektów się
+nie mieszały. Fakty zawsze trafiają do pamięci per-projekt; skille domyślnie są projektowe,
+a na globalne awansują tylko przez bramkę 3 kryteriów (brak śladów projektu + tylko
+uniwersalne narzędzia + realnie przydatne w niezwiązanym projekcie).
 
-📖 Pełny opis działania, zasad i mapy pamięci: [`learning-loop/README.md`](./learning-loop/README.md).
+📖 **Pełny opis** — wszystkie pojęcia, mechanizmy, zasady, przykład końca-do-końca i mapa
+pamięci: [`learning-loop/README.md`](./learning-loop/README.md).
+
+---
 
 ## Instalacja
 
@@ -56,21 +71,21 @@ Plus **Stop hook**, który przypomina o `/reflect`, gdy kończysz sesję z nieza
 ```
 
 Po instalacji dostępne: `/reflect`, `/skill-review`, `/curator`. Stop hook wpina się
-automatycznie (bez edycji `settings.json`).
+automatycznie — bez ręcznej edycji `settings.json`.
 
 ## Wymagania
 
-- `node` (hook OS-niezależny + skanery; bez `bash`/`jq`/`python3`).
-- `git` (hook przypomina tylko w repo z niezacommitowanymi zmianami).
-- Claude Code z obsługą pluginów — zalecana najnowsza (`claude update`; wersja: `claude --version`).
-  Udokumentowane minimum: **2.1.128**.
+- **`node`** — hook (OS-niezależny) + skanery skilli. Bez `bash`/`jq`/`python3`.
+- **`git`** — hook przypomina tylko w repo z niezacommitowanymi zmianami.
+- **Claude Code z obsługą pluginów** — zalecana najnowsza (`claude update`; wersja:
+  `claude --version`). Udokumentowane minimum: **2.1.128**.
 
-Hook działa identycznie na Windows / Linux / macOS (exec form `node`, bez shella).
+Hook działa identycznie na **Windows / Linux / macOS** (exec form `node`, bez powłoki).
 
 ## Aktualizacje
 
-Po bumpie `version` w `learning-loop/.claude-plugin/plugin.json` oraz wpisie w
-`.claude-plugin/marketplace.json`, użytkownicy:
+Po podbiciu `version` w `learning-loop/.claude-plugin/plugin.json` oraz w
+`.claude-plugin/marketplace.json` i wypchnięciu zmian, użytkownicy aktualizują:
 
 ```
 /plugin marketplace update claude_evolve
