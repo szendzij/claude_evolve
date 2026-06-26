@@ -1,4 +1,8 @@
 {
+  "name": "claude_evolve",
+  "owner": {
+    "name": "Jakub Szendzielorz"
+  },
   "version": "1.2.0",
   "plugins": [
     {
