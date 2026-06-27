@@ -1,13 +1,63 @@
 // memory-retrieval.mjs — SessionStart hook: inline recall of relevant per-project memory.
 // OS-independent (pure node, exec form). Always exit 0, never blocks, never throws —
 // must not generate its own friction. Locates memory; later tasks add ranking + injection.
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+
+const MAX_FACTS = 5;
+const MAX_CHARS = 4000;
+const MIN_TOKEN_LEN = 3;
 
 function deriveMemoryDir(cwd) {
   const slug = String(cwd).replace(/[^A-Za-z0-9-]/g, "-");
   return join(homedir(), ".claude", "projects", slug, "memory");
+}
+
+function tokenize(s) {
+  return new Set(
+    String(s).toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= MIN_TOKEN_LEN)
+  );
+}
+
+// Parse "- [Title](file.md) — hook" index lines.
+function parseIndex(indexText) {
+  const entries = [];
+  for (const line of indexText.split(/\r?\n/)) {
+    const m = line.match(/^\s*-\s*\[([^\]]+)\]\(([^)]+\.md)\)\s*(?:[—-]\s*(.*))?$/);
+    if (!m) continue;
+    entries.push({ file: m[2], text: m[1] + " " + (m[3] || "") });
+  }
+  return entries;
+}
+
+function selectFacts(entries, memoryDir, signals) {
+  const enriched = entries.map((e) => {
+    const full = join(memoryDir, e.file);
+    let mtime = 0;
+    try { mtime = statSync(full).mtimeMs; } catch { /* missing fact file */ }
+    const etoks = tokenize(e.text);
+    let score = 0;
+    for (const t of signals) if (etoks.has(t)) score++;
+    return { file: e.file, full, mtime, score };
+  }).filter((e) => e.mtime > 0);
+
+  const scored = enriched.filter((e) => e.score > 0);
+  const ranked = scored.length
+    ? scored.sort((a, b) => b.score - a.score || b.mtime - a.mtime)
+    : enriched.sort((a, b) => b.mtime - a.mtime);
+
+  const picked = [];
+  let used = 0;
+  for (const e of ranked) {
+    if (picked.length >= MAX_FACTS) break;
+    let content;
+    try { content = readFileSync(e.full, "utf8"); } catch { continue; }
+    if (used + content.length > MAX_CHARS) continue; // skip too-big; never truncate
+    picked.push({ file: e.file, content });
+    used += content.length;
+  }
+  return picked;
 }
 
 function buildBlock(indexText, signals, picked) {
@@ -30,12 +80,14 @@ function main() {
   let input = {};
   try { input = JSON.parse(readFileSync(0, "utf8") || "{}"); } catch { return; }
   const cwd = input.cwd || process.cwd();
-  const indexPath = join(deriveMemoryDir(cwd), "MEMORY.md");
+  const memoryDir = deriveMemoryDir(cwd);
+  const indexPath = join(memoryDir, "MEMORY.md");
   if (!existsSync(indexPath)) return; // silent: nothing to recall
   let indexText = "";
   try { indexText = readFileSync(indexPath, "utf8"); } catch { return; }
+  const entries = parseIndex(indexText);
   const signals = new Set();   // populated in Task 4
-  const picked = [];           // populated in Task 3
+  const picked = entries.length ? selectFacts(entries, memoryDir, signals) : [];
   const additionalContext = buildBlock(indexText, signals, picked);
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: { hookEventName: "SessionStart", additionalContext },

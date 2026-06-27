@@ -60,3 +60,27 @@ test("T7: MEMORY.md istnieje, brak parsowalnych wpisow -> sam indeks, exit 0", (
   assert.match(ctx, /no entries yet/);
   assert.doesNotMatch(ctx, /Przywołane fakty/); // no facts seeded/implemented
 });
+
+test("T3: brak sygnalu (fake cwd, brak gita) -> fallback recency wstrzykuje najnowszy fakt", () => {
+  const home = freshHome();
+  const cwd = "C:\\fake\\not-a-repo"; // not a real/git dir -> git fails -> signals empty
+  const index =
+    "# Memory\n" +
+    "- [Old fact](old.md) — stary temat\n" +
+    "- [New fact](new.md) — nowszy temat\n";
+  const dir = seedMemory(home, cwd, index, {
+    "old.md": "OLD FACT BODY",
+    "new.md": "NEW FACT BODY",
+  });
+  // Make new.md clearly newer than old.md.
+  const t0 = Date.now() / 1000;
+  utimesSync(join(dir, "old.md"), t0 - 100, t0 - 100);
+  utimesSync(join(dir, "new.md"), t0, t0);
+  const { code, out } = runHook({ cwd }, freshDir(), home);
+  assert.equal(code, 0);
+  const ctx = JSON.parse(out).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /## Przywołane fakty/);
+  assert.match(ctx, /NEW FACT BODY/);
+  // newest ranked first
+  assert.ok(ctx.indexOf("NEW FACT BODY") < ctx.indexOf("OLD FACT BODY"));
+});
