@@ -2,12 +2,14 @@
 // OS-independent (pure node, exec form). Always exit 0, never blocks, never throws —
 // must not generate its own friction. Locates memory; later tasks add ranking + injection.
 import { readFileSync, existsSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
 const MAX_FACTS = 5;
 const MAX_CHARS = 4000;
 const MIN_TOKEN_LEN = 3;
+const GIT_TIMEOUT_MS = 1500;
 
 function deriveMemoryDir(cwd) {
   const slug = String(cwd).replace(/[^A-Za-z0-9-]/g, "-");
@@ -60,6 +62,21 @@ function selectFacts(entries, memoryDir, signals) {
   return picked;
 }
 
+function git(args, cwd) {
+  try {
+    return execFileSync("git", args, {
+      cwd, timeout: GIT_TIMEOUT_MS, encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch { return ""; }
+}
+
+function gatherSignals(cwd) {
+  const branch = git(["branch", "--show-current"], cwd);
+  const changed = git(["diff", "--name-only", "HEAD~3", "HEAD"], cwd);
+  return tokenize(branch + " " + changed);
+}
+
 function buildBlock(indexText, signals, picked) {
   const sig = signals.size ? [...signals].join(" ") : "brak (fallback: recency)";
   const parts = [
@@ -86,7 +103,7 @@ function main() {
   let indexText = "";
   try { indexText = readFileSync(indexPath, "utf8"); } catch { return; }
   const entries = parseIndex(indexText);
-  const signals = new Set();   // populated in Task 4
+  const signals = gatherSignals(cwd);
   const picked = entries.length ? selectFacts(entries, memoryDir, signals) : [];
   const additionalContext = buildBlock(indexText, signals, picked);
   process.stdout.write(JSON.stringify({
