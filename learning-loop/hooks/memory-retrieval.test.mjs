@@ -119,3 +119,39 @@ test("T2: branch token dopasowuje fakt -> ten fakt wstrzykniety (rank 1)", () =>
   // signals line reflects branch tokens
   assert.match(ctx, /auth/);
 });
+
+test("T5: tresc faktow > MAX_CHARS -> budzet respektowany, brak uciecia w pol", () => {
+  const home = freshHome();
+  const cwd = "C:\\fake\\budget-test"; // no git -> recency
+  const big = "A".repeat(3000);
+  const index =
+    "# Memory\n" +
+    "- [Fact one](f1.md) — temat\n" +
+    "- [Fact two](f2.md) — temat\n";
+  const dir = seedMemory(home, cwd, index, {
+    "f1.md": big,           // 3000 chars
+    "f2.md": "B".repeat(3000), // would push total to 6000 > 4000
+  });
+  const t0 = Date.now() / 1000;
+  utimesSync(join(dir, "f1.md"), t0, t0);
+  utimesSync(join(dir, "f2.md"), t0 - 100, t0 - 100); // f1 newest
+  const { code, out } = runHook({ cwd }, freshDir(), home);
+  assert.equal(code, 0);
+  const ctx = JSON.parse(out).hookSpecificOutput.additionalContext;
+  // exactly one 3000-char fact body fits under 4000; the second is skipped whole
+  const aCount = (ctx.match(/A{3000}/) || []).length;
+  const bCount = (ctx.match(/B{3000}/) || []).length;
+  assert.equal(aCount, 1);
+  assert.equal(bCount, 0);
+});
+
+test("T4: zepsuty MEMORY.md -> brak crasha, exit 0, poprawny JSON", () => {
+  const home = freshHome();
+  const cwd = "C:\\fake\\malformed";
+  seedMemory(home, cwd, "  not markdown ][)(— random {garbage}\n###");
+  const { code, out } = runHook({ cwd }, freshDir(), home);
+  assert.equal(code, 0);
+  const parsed = JSON.parse(out); // must be valid JSON
+  assert.equal(parsed.hookSpecificOutput.hookEventName, "SessionStart");
+  assert.doesNotMatch(parsed.hookSpecificOutput.additionalContext, /Przywołane fakty/);
+});
