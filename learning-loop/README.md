@@ -180,6 +180,17 @@ Archiwizuje (**NIGDY nie kasuje**) poza root odkrywania: `~/.claude/skills-archi
 (przywrócenie = przeniesienie z powrotem). Curator **raportuje**, decyzję podejmujesz Ty; bez progu
 czasowego i bez oceny treści przez LLM. `pinned: true` wyłącza skill z każdej tranzycji.
 
+### SessionStart hook (`memory-retrieval`) — przywołanie pamięci
+
+**Co robi:** na starcie sesji wyprowadza katalog pamięci per-projekt z `cwd`, czyta
+`MEMORY.md`, rankuje wpisy wg pokrycia tokenów sygnałami sesji (branch + `git diff HEAD~3`),
+a gdy brak sygnału — wg świeżości. Wstrzykuje indeks oraz **treść** top-5 faktów (budżet
+4000 znaków) inline do kontekstu, żeby wiedza była dostępna, nie tylko „do pobrania".
+
+**Kiedy milczy:** brak pamięci projektu / zły JSON / brak gita — cichy `exit 0`, zero błędów.
+
+**Zero zahardkodowanej mapy domen** — ranking liczony z opisów na dysku, więc się nie starzeje.
+
 ### Stop hook (`reflection-gate`) — cichy strażnik
 
 **Co robi:** kiedy kończysz sesję z **niezacommitowanymi zmianami** w repo git, przypomina
@@ -270,6 +281,7 @@ Format wpisu tarcia:
 | Tarcie | dowód do poprawki | `<skill>/FRICTION.md` |
 | Przejściowa | handoff | `.remember/remember.md` |
 | Archiwum | wycofane auto-skille | `~/.claude/skills-archive/` lub `./.claude/skills-archive/` |
+| Retrieval | przywołanie faktów na starcie sesji | `memory-retrieval` (SessionStart) → `additionalContext` |
 
 ---
 
@@ -312,5 +324,6 @@ powłoki, bez Git for Windows). Zweryfikowany na Windows; zautomatyzowany test h
   utrzymania, zero subiektywnych ocen, zero progu czasowego.
 - **Brak wynoszenia faktów user-level do globalnej konfiguracji** — to domena Twojego ręcznie
   kuratorowanego `~/.claude/`. Pętla celowo tego nie dotyka.
-- **Brak hooków na każdą akcję** — tylko jeden lekki Stop hook. Im mniej automatyki w tle,
-  tym mniej kruchości.
+- **Minimalny zestaw hooków** — SessionStart (retrieval), Stop (reflection-gate),
+  PostToolUseFailure (friction-capture). Trzy lekkie hooki node, każdy z testami; żadnej
+  automatyki „na każdą akcję" ponad to. Im mniej automatyki w tle, tym mniej kruchości.
