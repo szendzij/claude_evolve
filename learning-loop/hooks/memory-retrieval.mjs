@@ -3,7 +3,7 @@
 // must not generate its own friction. Locates memory; later tasks add ranking + injection.
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { join } from "node:path";
+import { join, resolve, relative, sep } from "node:path";
 import { homedir } from "node:os";
 
 const MAX_FACTS = 5;
@@ -33,11 +33,25 @@ function parseIndex(indexText) {
   return entries;
 }
 
+// Reject any fact path that escapes memoryDir (path traversal). OS-independent:
+// path.relative normalizes sep/case; a contained path is neither absolute nor
+// starts with "..". Returning "" also blocks the memoryDir itself (no file part).
+function isInside(memoryDir, full) {
+  const root = resolve(memoryDir);
+  const target = resolve(full);
+  const rel = relative(root, target);
+  return rel !== "" && !rel.startsWith("..") && !rel.startsWith(".." + sep) &&
+    !/^([A-Za-z]:)?[\\/]/.test(rel); // absolute => different drive/root => outside
+}
+
 function selectFacts(entries, memoryDir, signals) {
   const enriched = entries.map((e) => {
     const full = join(memoryDir, e.file);
     let mtime = 0;
-    try { mtime = statSync(full).mtimeMs; } catch { /* missing fact file */ }
+    // Containment guard first: an escaping entry is never statted/read.
+    if (isInside(memoryDir, full)) {
+      try { mtime = statSync(full).mtimeMs; } catch { /* missing fact file */ }
+    }
     const etoks = tokenize(e.text);
     let score = 0;
     for (const t of signals) if (etoks.has(t)) score++;

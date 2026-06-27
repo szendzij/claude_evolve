@@ -145,6 +145,29 @@ test("T5: tresc faktow > MAX_CHARS -> budzet respektowany, brak uciecia w pol", 
   assert.equal(bCount, 0);
 });
 
+test("T8: wpis indeksu uciekajacy poza memoryDir (path traversal) -> pominiety, nie wstrzykniety", () => {
+  const home = freshHome();
+  const cwd = "C:\\fake\\traversal-test"; // no git -> recency fallback
+  // The escaping fact lives outside the memory dir; a legit fact lives inside.
+  const index =
+    "# Memory\n" +
+    "- [Escape](../../../escape.md) — sekret\n" +
+    "- [Legit](legit.md) — prawdziwy fakt\n";
+  const dir = seedMemory(home, cwd, index, {
+    "legit.md": "LEGIT FACT BODY",
+  });
+  // Create the escape target OUTSIDE the memory dir, at the path the entry resolves to.
+  const escapeTarget = join(dir, "..", "..", "..", "escape.md");
+  writeFileSync(escapeTarget, "ESCAPED SECRET");
+  const { code, out } = runHook({ cwd }, freshDir(), home);
+  assert.equal(code, 0);
+  const ctx = JSON.parse(out).hookSpecificOutput.additionalContext;
+  // The traversal sentinel must never be read/injected.
+  assert.doesNotMatch(ctx, /ESCAPED SECRET/);
+  // The guard must not over-block: the legit sibling fact is still injected.
+  assert.match(ctx, /LEGIT FACT BODY/);
+});
+
 test("T4: zepsuty MEMORY.md -> brak crasha, exit 0, poprawny JSON", () => {
   const home = freshHome();
   const cwd = "C:\\fake\\malformed";
