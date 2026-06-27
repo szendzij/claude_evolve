@@ -10,13 +10,36 @@ function deriveMemoryDir(cwd) {
   return join(homedir(), ".claude", "projects", slug, "memory");
 }
 
+function buildBlock(indexText, signals, picked) {
+  const sig = signals.size ? [...signals].join(" ") : "brak (fallback: recency)";
+  const parts = [
+    "# Pamięć projektu (learning-loop)",
+    `**Sygnały sesji:** ${sig}`,
+    "",
+    "## Indeks (MEMORY.md)",
+    indexText.trim(),
+  ];
+  if (picked.length) {
+    parts.push("", "## Przywołane fakty (top-N, inline)");
+    for (const p of picked) parts.push("", `### ${p.file}`, p.content.trim());
+  }
+  return parts.join("\n");
+}
+
 function main() {
   let input = {};
   try { input = JSON.parse(readFileSync(0, "utf8") || "{}"); } catch { return; }
   const cwd = input.cwd || process.cwd();
   const indexPath = join(deriveMemoryDir(cwd), "MEMORY.md");
   if (!existsSync(indexPath)) return; // silent: nothing to recall
-  // injection added in later tasks
+  let indexText = "";
+  try { indexText = readFileSync(indexPath, "utf8"); } catch { return; }
+  const signals = new Set();   // populated in Task 4
+  const picked = [];           // populated in Task 3
+  const additionalContext = buildBlock(indexText, signals, picked);
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: { hookEventName: "SessionStart", additionalContext },
+  }));
 }
 
 try { main(); } catch { /* never throw — must not generate friction */ }

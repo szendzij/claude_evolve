@@ -48,3 +48,15 @@ test("T1: brak memory dir -> pusty output, exit 0", () => {
   assert.equal(code, 0);
   assert.equal(out, "");
 });
+
+test("T7: MEMORY.md istnieje, brak parsowalnych wpisow -> sam indeks, exit 0", () => {
+  const home = freshHome();
+  const cwd = freshDir();
+  seedMemory(home, cwd, "# Memory index\n\n(no entries yet)\n");
+  const { code, out } = runHook({ cwd }, cwd, home);
+  assert.equal(code, 0);
+  const ctx = JSON.parse(out).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /## Indeks \(MEMORY\.md\)/);
+  assert.match(ctx, /no entries yet/);
+  assert.doesNotMatch(ctx, /Przywołane fakty/); // no facts seeded/implemented
+});
