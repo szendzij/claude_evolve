@@ -52,7 +52,7 @@ const fs=require("fs"),path=require("path"),os=require("os");
 function pending(dir){
   const f=path.join(dir,"FRICTION.md"); if(!fs.existsSync(f)) return 0;
   const txt=fs.readFileSync(f,"utf8");
-  return txt.split(/^##\s/m).filter(b=>/\*\*expected:\*\*/.test(b)&&/\*\*actual:\*\*/.test(b)&&!/\*\*won.t-fix:\*\*/.test(b)).length;
+  return txt.split(/^##\s/m).slice(1).filter(b=>/\*\*expected:\*\*/.test(b)&&/\*\*actual:\*\*/.test(b)&&!/\*\*won.t-fix:\*\*/.test(b)).length;
 }
 const roots=[["global",path.join(os.homedir(),".claude","skills")],
              ["project",path.join(process.cwd(),".claude","skills")]];

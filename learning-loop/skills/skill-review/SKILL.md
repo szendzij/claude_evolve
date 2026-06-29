@@ -65,7 +65,7 @@ for(const [scope,root] of roots){
     if(!e.isDirectory()||e.name.startsWith(".")) continue;
     const f=path.join(root,e.name,"FRICTION.md"); if(!fs.existsSync(f)) continue;
     const txt=fs.readFileSync(f,"utf8");
-    const n=txt.split(/^##\s/m).filter(b=>/\*\*expected:\*\*/.test(b)&&/\*\*actual:\*\*/.test(b)&&!/\*\*won.t-fix:\*\*/.test(b)).length;
+    const n=txt.split(/^##\s/m).slice(1).filter(b=>/\*\*expected:\*\*/.test(b)&&/\*\*actual:\*\*/.test(b)&&!/\*\*won.t-fix:\*\*/.test(b)).length;
     if(n>0) console.log(`[${scope}] ${e.name}  ${n} wpis(y)`);
   }
 }'
