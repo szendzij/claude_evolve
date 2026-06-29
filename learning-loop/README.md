@@ -164,6 +164,8 @@ leżą poza zasięgiem.
 sygnał „dawno nieedytowane do przeglądu", NIE wyrok. Decyzję per skill podejmujesz Ty.
 Archiwizuje (**NIGDY nie kasuje**) poza root odkrywania: `~/.claude/skills-archive/` lub
 `./.claude/skills-archive/`. Pomija `pinned: true`. Czyści też martwe/duplikatowe linie `MEMORY.md`.
+Rozdziela też kandydatury tarcia: `*.processed` (striageowane logi, > 7 dni) od nieprzetworzonych
+`*.jsonl` (lekcje, > 21 dni) — te drugie raportuje jako **utratę** i nigdy nie kasuje domyślnie.
 
 **Kiedy:** okresowo (np. raz w miesiącu), gdy `~/.claude/skills/` lub `./.claude/skills/` się rozrasta.
 
@@ -193,11 +195,12 @@ a gdy brak sygnału — wg świeżości. Wstrzykuje indeks oraz **treść** top-
 
 ### Stop hook (`reflection-gate`) — cichy strażnik
 
-**Co robi:** kiedy kończysz sesję z **niezacommitowanymi zmianami** w repo git, przypomina
-o `/reflect` i dokleja `git diff --stat` jako rozbieg.
+**Co robi:** kiedy kończysz sesję z **niezacommitowanymi zmianami** w repo git, LUB gdy ta
+sesja zarejestrowała **nieprzetworzone kandydatury tarcia**, przypomina o `/reflect` i dokleja
+`git diff --stat` oraz ścieżkę pliku kandydatur jako rozbieg.
 
-**Kiedy milczy:** poza repo git / przy czystym drzewie / gdy już raz przypomniał w tym
-cyklu (zabezpieczenie przed pętlą przez flagę `stop_hook_active`).
+**Kiedy milczy:** poza repo git i bez kandydatur / przy czystym drzewie bez kandydatur / gdy
+już raz przypomniał w tym cyklu (flaga `stop_hook_active`).
 
 **Dlaczego node, a nie bash:** napisany w czystym Node.js i uruchamiany w *exec form*
 (`{command: "node", args: [...]}`), bez powłoki. Dzięki temu jest **napisany OS-niezależnie**
@@ -327,3 +330,6 @@ powłoki, bez Git for Windows). Zweryfikowany na Windows; zautomatyzowany test h
 - **Minimalny zestaw hooków** — SessionStart (retrieval), Stop (reflection-gate),
   PostToolUseFailure (friction-capture). Trzy lekkie hooki node, każdy z testami; żadnej
   automatyki „na każdą akcję" ponad to. Im mniej automatyki w tle, tym mniej kruchości.
+  `friction-capture` pomija przy tym **szum definicyjny** (EISDIR z czytania katalogu, błędy
+  składni powłoki) — nie zapisuje go jako kandydatury, by `/reflect` nie tonął w przejściowych
+  awariach narzędzi.
