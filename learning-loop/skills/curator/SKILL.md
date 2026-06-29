@@ -109,35 +109,56 @@ for(const [f,n] of seen) if(n>1) console.log(`DUPLIKAT: ${f} x${n}`);
 
 ## Higiena kandydatur tarcia
 
-Hook `friction-capture` zostawia pliki `~/.claude/learning-loop/friction-candidates/*.{jsonl,processed}`
-— to **transientne logi sesji**, nie skille. Raportuj te starsze niż **7 dni** i — po
-potwierdzeniu usera — usuń (to logi, nie podlegają regule „nigdy nie kasuj"; ale pytasz przed usunięciem).
+Hook `friction-capture` zostawia pliki w `~/.claude/learning-loop/friction-candidates/`.
+Rozróżniaj **dwie klasy** — nie traktuj wszystkiego jako „logi":
 
-Raport (pliki > 7 dni):
+- **`*.processed`** — już striageowane w `/reflect`. To prawdziwe transientne logi.
+  Raportuj > **7 dni** i — po potwierdzeniu — usuń (logi, nie podlegają „nigdy nie kasuj").
+- **`*.jsonl`** (bez `.processed`) — **nieprzetworzone lekcje**, jedyny zapisany sygnał tarcia.
+  Raportuj > **21 dni** z framingiem **utraty**: to nie logi, to lekcje, które przepadną.
+  **Nie kasuj ich na ślepo** — najpierw zaproponuj userowi `/reflect`, by je przypisał.
 
-```bash
-node -e '
-const fs=require("fs"),path=require("path"),os=require("os");
-const dir=path.join(os.homedir(),".claude","learning-loop","friction-candidates");
-const cutoff=Date.now()-7*864e5;
-let files=[]; try{files=fs.readdirSync(dir);}catch{console.log("(brak katalogu kandydatur)");process.exit(0);}
-let n=0;
-for(const f of files){const m=fs.statSync(path.join(dir,f)).mtimeMs;
-  if(m<cutoff){console.log("STARY:",f,new Date(m).toISOString().slice(0,10));n++;}}
-if(!n)console.log("(brak plików > 7 dni)");
-'
-```
-
-Usunięcie (po potwierdzeniu):
+Raport `.processed` > 7 dni (bezpieczne do usunięcia):
 
 ```bash
 node -e '
 const fs=require("fs"),path=require("path"),os=require("os");
 const dir=path.join(os.homedir(),".claude","learning-loop","friction-candidates");
 const cutoff=Date.now()-7*864e5;let n=0;
-for(const f of fs.readdirSync(dir)){const p=path.join(dir,f);
-  if(fs.statSync(p).mtimeMs<cutoff){fs.unlinkSync(p);n++;}}
-console.log("usunieto",n,"plikow > 7 dni");
+let files=[];try{files=fs.readdirSync(dir);}catch{console.log("(brak katalogu kandydatur)");process.exit(0);}
+for(const f of files){ if(!f.endsWith(".processed")) continue;
+  const m=fs.statSync(path.join(dir,f)).mtimeMs;
+  if(m<cutoff){console.log("PROCESSED >7d:",f,new Date(m).toISOString().slice(0,10));n++;}}
+if(!n)console.log("(brak .processed > 7 dni)");
+'
+```
+
+Raport nieprzetworzonych `.jsonl` > 21 dni (UTRATA — uruchom /reflect, nie kasuj):
+
+```bash
+node -e '
+const fs=require("fs"),path=require("path"),os=require("os");
+const dir=path.join(os.homedir(),".claude","learning-loop","friction-candidates");
+const cutoff=Date.now()-21*864e5;let n=0;
+let files=[];try{files=fs.readdirSync(dir);}catch{console.log("(brak katalogu kandydatur)");process.exit(0);}
+for(const f of files){ if(!f.endsWith(".jsonl")) continue;
+  const m=fs.statSync(path.join(dir,f)).mtimeMs;
+  if(m<cutoff){console.log("NIEPRZETWORZONA LEKCJA >21d:",f,new Date(m).toISOString().slice(0,10));n++;}}
+if(n)console.log("\n=> "+n+" nieprzetworzonych lekcji starszych niz 21 dni. To NIE logi — uruchom /reflect, by je przypisac; NIE kasuj na slepo.");
+else console.log("(brak nieprzetworzonych .jsonl > 21 dni)");
+'
+```
+
+Usunięcie `.processed` > 7 dni (tylko ta klasa, po potwierdzeniu usera):
+
+```bash
+node -e '
+const fs=require("fs"),path=require("path"),os=require("os");
+const dir=path.join(os.homedir(),".claude","learning-loop","friction-candidates");
+const cutoff=Date.now()-7*864e5;let n=0;
+for(const f of fs.readdirSync(dir)){ if(!f.endsWith(".processed")) continue;
+  const p=path.join(dir,f); if(fs.statSync(p).mtimeMs<cutoff){fs.unlinkSync(p);n++;}}
+console.log("usunieto",n,".processed > 7 dni");
 '
 ```
 
