@@ -29,6 +29,7 @@ przenosi do archiwum **poza drzewem odkrywania** (odwracalnie). Obejmuje skille 
   globalne → `~/.claude/skills-archive/<name>/`, projektowe → `./.claude/skills-archive/<name>/`.
 - `pinned: true` w metadata → skill wyłączony z każdej tranzycji.
 - Bez LLM-review treści skilla. Decyzja usera na podstawie raportu.
+- **Pending-friction obok mtime:** raport pokazuje liczbę ważnych wpisów `FRICTION.md` (`Nf`, flaga `!` gdy >0). Skille z `Nf>0` przejrzyj **niezależnie od mtime** — świeży mtime może maskować skill chronicznie łatany.
 
 ## Procedure
 
@@ -36,7 +37,8 @@ przenosi do archiwum **poza drzewem odkrywania** (odwracalnie). Obejmuje skille 
    (globalne + projektowe, pomijając `pinned: true`), posortowane wg `mtime` od najdawniej
    edytowanych, z etykietą zasięgu `[global]`/`[project]` i datą.
 2. **Przedstaw** listę userowi z jawną ramką: „dawno nieedytowane — przejrzyj, czy nadal
-   przydatne" (NIE „martwe"). NIE archiwizuj nic automatycznie.
+   przydatne" (NIE „martwe"). Zwróć uwagę na flagę `!`/`Nf>0`: te skille mają nieprzetworzone
+   tarcie i zasługują na przegląd niezależnie od pozycji wg mtime. NIE archiwizuj nic automatycznie.
 3. **Po decyzji** usera per skill: zostaw / zaproponuj dodanie `pinned: true` / archiwizuj.
 4. **Archiwizacja** wybranych: uruchom komendę „archiwizuj" niżej z `<scope>` (`global`|`project`)
    i `<name>`. Tworzy `skills-archive/` (jeśli brak) i przenosi tam katalog skilla. Przywrócenie
@@ -47,6 +49,11 @@ przenosi do archiwum **poza drzewem odkrywania** (odwracalnie). Obejmuje skille 
 ```bash
 node -e '
 const fs=require("fs"),path=require("path"),os=require("os");
+function pending(dir){
+  const f=path.join(dir,"FRICTION.md"); if(!fs.existsSync(f)) return 0;
+  const txt=fs.readFileSync(f,"utf8");
+  return txt.split(/^##\s/m).filter(b=>/\*\*expected:\*\*/.test(b)&&/\*\*actual:\*\*/.test(b)&&!/\*\*won.t-fix:\*\*/.test(b)).length;
+}
 const roots=[["global",path.join(os.homedir(),".claude","skills")],
              ["project",path.join(process.cwd(),".claude","skills")]];
 const rows=[];
@@ -54,17 +61,21 @@ for(const [scope,root] of roots){
   let es=[]; try{es=fs.readdirSync(root,{withFileTypes:true});}catch{continue;}
   for(const e of es){
     if(!e.isDirectory()||e.name.startsWith(".")) continue;
-    const f=path.join(root,e.name,"SKILL.md"); if(!fs.existsSync(f)) continue;
+    const d=path.join(root,e.name);
+    const f=path.join(d,"SKILL.md"); if(!fs.existsSync(f)) continue;
     const fm=(fs.readFileSync(f,"utf8").match(/^---\r?\n([\s\S]*?)\r?\n---/)||[,""])[1];
     if(!/origin:\s*reflect-loop/.test(fm)||/pinned:\s*true/.test(fm)) continue;
-    rows.push({scope,name:e.name,m:fs.statSync(f).mtimeMs});
+    rows.push({scope,name:e.name,m:fs.statSync(f).mtimeMs,nf:pending(d)});
   }
 }
 rows.sort((a,b)=>a.m-b.m);
-for(const r of rows) console.log(`[${r.scope}] ${r.name}  ${new Date(r.m).toISOString().slice(0,10)}`);
+for(const r of rows) console.log(`${r.nf>0?"!":" "} [${r.scope}] ${r.name}  ${new Date(r.m).toISOString().slice(0,10)}  ${r.nf}f`);
 if(!rows.length) console.log("(brak auto-skilli)");
 '
 ```
+
+Uwaga: zamiast `⚠` użyto ASCII `!` jako flagi, by snippet pozostał ASCII-safe wewnątrz `node -e`
+na Windows Git Bash; w prozie nazywamy ją „flagą pending-friction".
 
 ## Komenda pomocnicza — archiwizuj jeden skill (odwracalnie, poza root)
 
@@ -168,3 +179,4 @@ console.log("usunieto",n,".processed > 7 dni");
 - Brak progu — najświeższy skill też jest na liście. Żadnej automatycznej archiwizacji.
 - Archiwum ląduje w `skills-archive/` (poza `skills/`); zarchiwizowany skill znika z `/`-autocomplete.
 - Pliki w archiwum dają się przywrócić (przeniesienie z powrotem).
+- Raport pokazuje kolumnę `Nf` (ważne pending wpisy: expected ∧ actual ∧ ¬won't-fix) i flagę `!` przy `Nf>0`; sort wg mtime rosnąco zachowany.
