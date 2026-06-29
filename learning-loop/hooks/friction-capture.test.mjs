@@ -65,3 +65,26 @@ test("brak error -> rekord z pustym error, target zachowany", () => {
   assert.equal(rec.error, "");
   assert.equal(rec.target, "/p");
 });
+
+test("F1: EISDIR error -> nic nie zapisane, exit 0", () => {
+  const home = freshHome();
+  const code = runHook({ session_id: "f1", tool_name: "Read", error: "EISDIR: illegal operation on a directory, read '/some/dir'", tool_input: { file_path: "/some/dir" } }, home);
+  assert.equal(code, 0);
+  assert.ok(!existsSync(join(candDir(home), "f1.jsonl")));
+});
+
+test("F2: blad skladni powloki -> nic nie zapisane, exit 0", () => {
+  const home = freshHome();
+  const c1 = runHook({ session_id: "f2a", tool_name: "Bash", error: "/usr/bin/bash: eval: line 1: unexpected EOF while looking for matching \"'\"", tool_input: { command: "ls \"" } }, home);
+  const c2 = runHook({ session_id: "f2b", tool_name: "Bash", error: "/usr/bin/bash: eval: line 1: syntax error near unexpected token `('", tool_input: { command: "echo (" } }, home);
+  assert.equal(c1, 0);
+  assert.equal(c2, 0);
+  assert.ok(!existsSync(join(candDir(home), "f2a.jsonl")));
+  assert.ok(!existsSync(join(candDir(home), "f2b.jsonl")));
+});
+
+test("F3: zwykly blad (porazka testu) -> nadal zapisany", () => {
+  const home = freshHome();
+  runHook({ session_id: "f3", tool_name: "Bash", error: "FAIL tests/handlers.test.js\n  × zwraca dane", tool_input: { command: "npm test" } }, home);
+  assert.ok(existsSync(join(candDir(home), "f3.jsonl")));
+});

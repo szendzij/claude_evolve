@@ -5,13 +5,22 @@ import { readFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
+// Definitional noise — never a skill failure, only tool-misuse or shell-quoting slips.
+function isNoise(error) {
+  if (/EISDIR/.test(error)) return true;
+  if (/bash:.*(syntax error|unexpected EOF|unexpected token)/i.test(error)) return true;
+  return false;
+}
+
 function main() {
   let input;
   try { input = JSON.parse(readFileSync(0, "utf8") || "{}"); } catch { return; }
   const sid = input.session_id;
   if (!sid) return; // bez session_id nie wiemy, gdzie zapisać
   const tool = input.tool_name || "unknown";
-  const error = String(input.error ?? "").slice(0, 300);
+  const rawError = String(input.error ?? "");
+  if (isNoise(rawError)) return; // skip definitional noise — never a skill failure
+  const error = rawError.slice(0, 300);
   const ti = input.tool_input || {};
   const target = String(ti.file_path || ti.command || "").slice(0, 200);
   const dir = join(homedir(), ".claude", "learning-loop", "friction-candidates");
