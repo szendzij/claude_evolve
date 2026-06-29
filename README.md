@@ -28,7 +28,8 @@ nie skaził projektu B.
 
 ```
  koniec sesji z niezacommitowaną pracą
-        │  Stop hook → przypomina: uruchom /reflect
+        │  Stop hook → odkłada znacznik pending-reflect (nie przerywa);
+        │              następny start projektu pokazuje „masz N pending /reflect"
         ▼
  /reflect        sortuje wnioski:  fakt          → pamięć per-projekt
         │                          procedura     → skill (projektowy/globalny)
@@ -49,7 +50,7 @@ Cykl życia skilla: **`/reflect` rodzi → `/skill-review` dojrzewa → `/curato
 | `/reflect` | Sortownia wiedzy na koniec sesji. Każdy trwały wniosek kieruje do właściwej warstwy (fakt → pamięć per-projekt, procedura → skill, handoff, tarcie → `FRICTION.md`). |
 | `/skill-review` | Warsztat. Zamienia zebrane tarcie (`FRICTION.md`) w konkretne poprawki `SKILL.md`. **Evidence-only**: bez zaobserwowanego dowodu — żadnej zmiany. |
 | `/curator` | Sprzątaczka. Archiwizuje (odwracalnie, **nigdy nie kasuje**) auto-skille nieruszane > 30 dni. |
-| Stop hook | Cichy strażnik — przypomina o `/reflect`, gdy kończysz sesję z niezacommitowaną pracą. OS-niezależny (czysty `node`). |
+| Stop hook | Cichy strażnik — **odracza** `/reflect`: zamiast przerywać terminal, zapisuje znacznik `pending-reflect` (otagowany `cwd`), który `memory-retrieval` pokazuje na starcie kolejnej sesji projektu. OS-niezależny (czysty `node`). |
 
 ### Zasada nadrzędna
 

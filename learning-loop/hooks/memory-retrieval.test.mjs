@@ -178,3 +178,57 @@ test("T4: zepsuty MEMORY.md -> brak crasha, exit 0, poprawny JSON", () => {
   assert.equal(parsed.hookSpecificOutput.hookEventName, "SessionStart");
   assert.doesNotMatch(parsed.hookSpecificOutput.additionalContext, /Przywołane fakty/);
 });
+
+// Odroczone /reflect: reflection-gate zapisuje pending-reflect/<sid>.json.
+function seedPending(home, sid, markerCwd, extra = {}) {
+  const dir = join(home, ".claude", "learning-loop", "pending-reflect");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, sid + ".json"),
+    JSON.stringify({ session_id: sid, cwd: markerCwd, score: 60, candidates: 2, ...extra }));
+}
+
+test("P1: pending dla biezacego cwd, brak pamieci -> notka w kontekscie", () => {
+  const home = freshHome();
+  const cwd = freshDir();
+  seedPending(home, "session-aaaa", cwd);
+  const { code, out } = runHook({ cwd }, cwd, home);
+  assert.equal(code, 0);
+  const ctx = JSON.parse(out).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /Pending \/reflect/);
+  assert.match(ctx, /session-/); // skrócone id sesji
+  assert.match(ctx, /kandydatur tarcia/);
+});
+
+test("P2: pending dla INNEGO cwd -> brak notki (zero przecieku miedzy projektami)", () => {
+  const home = freshHome();
+  const cwd = freshDir();
+  const otherCwd = freshDir();
+  seedPending(home, "session-bbbb", otherCwd);
+  const { code, out } = runHook({ cwd }, cwd, home);
+  assert.equal(code, 0);
+  assert.equal(out, ""); // znacznik należy do innego projektu, brak pamięci tutaj
+});
+
+test("P3: pending + pamiec -> oba bloki w kontekscie", () => {
+  const home = freshHome();
+  const cwd = freshDir();
+  seedMemory(home, cwd, "# Memory index\n\n(no entries yet)\n");
+  seedPending(home, "session-cccc", cwd);
+  const { code, out } = runHook({ cwd }, cwd, home);
+  assert.equal(code, 0);
+  const ctx = JSON.parse(out).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /## Indeks \(MEMORY\.md\)/);
+  assert.match(ctx, /Pending \/reflect/);
+});
+
+test("P4: dwa pending dla biezacego cwd -> notka liczy obie sesje", () => {
+  const home = freshHome();
+  const cwd = freshDir();
+  seedPending(home, "session-1111", cwd, { candidates: 1 });
+  seedPending(home, "session-2222", cwd, { candidates: 3 });
+  const { code, out } = runHook({ cwd }, cwd, home);
+  assert.equal(code, 0);
+  const ctx = JSON.parse(out).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /2 niezreflektowane sesje/);
+  assert.match(ctx, /łącznie 4 kandydatur/);
+});

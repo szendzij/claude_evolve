@@ -1,7 +1,7 @@
 // memory-retrieval.mjs — SessionStart hook: inline recall of relevant per-project memory.
 // OS-independent (pure node, exec form). Always exit 0, never blocks, never throws —
 // must not generate its own friction. Locates memory; later tasks add ranking + injection.
-import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, resolve, relative, sep } from "node:path";
 import { homedir } from "node:os";
@@ -107,21 +107,79 @@ function buildBlock(indexText, signals, picked) {
   return parts.join("\n");
 }
 
+// Odroczone /reflect: reflection-gate zapisuje znaczniki pending-reflect/<sid>.json.
+// Pokazujemy TYLKO te dla bieżącego cwd (brak przecieku między projektami).
+function pendingReflectNotice(cwd) {
+  const dir = join(homedir(), ".claude", "learning-loop", "pending-reflect");
+  let files = [];
+  try { files = readdirSync(dir).filter((f) => f.endsWith(".json")); } catch { return ""; }
+  const here = resolve(cwd);
+  const mine = [];
+  for (const f of files) {
+    try {
+      const m = JSON.parse(readFileSync(join(dir, f), "utf8") || "{}");
+      if (m.cwd && resolve(m.cwd) === here) mine.push(m);
+    } catch { /* pomiń uszkodzony znacznik */ }
+  }
+  if (!mine.length) return "";
+  const totalCand = mine.reduce((a, m) => a + (Number(m.candidates) || 0), 0);
+  const rows = mine.map((m) => {
+    const id = String(m.session_id || "?").slice(0, 8);
+    return `  - sesja ${id} (score ${m.score || 0}, ${Number(m.candidates) || 0} kandydatur tarcia)`;
+  });
+  const head = mine.length === 1 ? "1 niezreflektowaną sesję" : `${mine.length} niezreflektowane sesje`;
+  return [
+    "## ⏳ Pending /reflect (odroczone z poprzednich sesji)",
+    `Masz ${head} w tym projekcie` + (totalCand ? `, łącznie ${totalCand} kandydatur tarcia` : "") + ":",
+    rows.join("\n"),
+    "Uruchom **/reflect**, gdy będziesz gotów — wyczyści te znaczniki po przetworzeniu.",
+  ].join("\n");
+}
+
 function main() {
   let input = {};
   try { input = JSON.parse(readFileSync(0, "utf8") || "{}"); } catch { return; }
   const cwd = input.cwd || process.cwd();
   const memoryDir = deriveMemoryDir(cwd);
   const indexPath = join(memoryDir, "MEMORY.md");
-  if (!existsSync(indexPath)) return; // silent: nothing to recall
-  let indexText = "";
-  try { indexText = readFileSync(indexPath, "utf8"); } catch { return; }
-  const entries = parseIndex(indexText);
-  const signals = gatherSignals(cwd);
-  const picked = entries.length ? selectFacts(entries, memoryDir, signals) : [];
-  let additionalContext = buildBlock(indexText, signals, picked);
+  const pending = pendingReflectNotice(cwd);
 
-  // Save memory injection size for token-report
+  // Wczytaj indeks pamięci (jeśli jest i czytelny). null = brak/nieczytelny.
+  let indexText = null;
+  if (existsSync(indexPath)) {
+    try { indexText = readFileSync(indexPath, "utf8"); } catch { indexText = null; }
+  }
+
+  // Nic do pokazania (ani pamięci, ani pending) → milcz.
+  if (indexText === null && !pending) return;
+
+  let additionalContext = "";
+
+  if (indexText !== null) {
+    const entries = parseIndex(indexText);
+    const signals = gatherSignals(cwd);
+    const picked = entries.length ? selectFacts(entries, memoryDir, signals) : [];
+    additionalContext = buildBlock(indexText, signals, picked);
+
+    // Append last-session token footprint summary
+    try {
+      const r = JSON.parse(readFileSync(
+        join(homedir(), ".claude", "learning-loop", "token-reports", "latest.json"), "utf8") || "{}");
+      if (r.total_max?.tokens) {
+        const skillLine = Object.entries(r.skills || {})
+          .map(([k, v]) => `/${k} ~${v.tokens} tok`)
+          .join(", ");
+        additionalContext += "\n\n## Plugin footprint (last session)\n"
+          + `Memory injection: ~${r.memory_injection?.tokens || 0} tok | ${skillLine} | Hooks: ~${r.hooks?.tokens || 0} tok | Max: ~${r.total_max.tokens} tok`;
+      }
+    } catch { /* silent — no report yet or corrupted */ }
+  }
+
+  if (pending) {
+    additionalContext += (additionalContext ? "\n\n" : "") + pending;
+  }
+
+  // Save total injected-context size for token-report
   const sid = input.session_id;
   if (sid) {
     const tokenDir = join(homedir(), ".claude", "learning-loop", "session-tokens");
@@ -131,19 +189,6 @@ function main() {
         JSON.stringify({ chars: additionalContext.length, ts: new Date().toISOString() }));
     } catch { /* never throw — must not generate friction */ }
   }
-
-  // Append last-session token footprint summary
-  try {
-    const r = JSON.parse(readFileSync(
-      join(homedir(), ".claude", "learning-loop", "token-reports", "latest.json"), "utf8") || "{}");
-    if (r.total_max?.tokens) {
-      const skillLine = Object.entries(r.skills || {})
-        .map(([k, v]) => `/${k} ~${v.tokens} tok`)
-        .join(", ");
-      additionalContext += "\n\n## Plugin footprint (last session)\n"
-        + `Memory injection: ~${r.memory_injection?.tokens || 0} tok | ${skillLine} | Hooks: ~${r.hooks?.tokens || 0} tok | Max: ~${r.total_max.tokens} tok`;
-    }
-  } catch { /* silent — no report yet or corrupted */ }
 
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: { hookEventName: "SessionStart", additionalContext },

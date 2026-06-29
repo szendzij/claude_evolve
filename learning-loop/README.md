@@ -74,9 +74,10 @@ się wyłącznie tym, co trwałe: faktami, procedurami i handoffem.
             │
             ▼
  ┌──────────────────────────┐
- │ Stop hook: reflection-gate│  Cichy strażnik. Widzi niezacommitowaną pracę
- └──────────────────────────┘  → przypomina: „uruchom /reflect" (+ git diff --stat).
-            │
+ │ Stop hook: reflection-gate│  Cichy strażnik. Widzi niezacommitowaną pracę,
+ └──────────────────────────┘  ale NIE przerywa — odkłada znacznik pending-reflect.
+            │                   Na starcie kolejnej sesji TEGO projektu retrieval
+            │                   pokazuje: „masz N pending /reflect".
             ▼
  ┌──────────────────────────┐  Sortownia wiedzy. Przegląda sesję i routuje
  │        /reflect           │  każdy wniosek do właściwej warstwy:
@@ -207,14 +208,21 @@ a gdy brak sygnału — wg świeżości. Wstrzykuje indeks oraz **treść** top-
 
 **Zero zahardkodowanej mapy domen** — ranking liczony z opisów na dysku, więc się nie starzeje.
 
-### Stop hook (`reflection-gate`) — cichy strażnik
+### Stop hook (`reflection-gate`) — cichy strażnik (odroczony)
 
 **Co robi:** kiedy kończysz sesję z **niezacommitowanymi zmianami** w repo git, LUB gdy ta
-sesja zarejestrowała **nieprzetworzone kandydatury tarcia**, przypomina o `/reflect` i dokleja
-`git diff --stat` oraz ścieżkę pliku kandydatur jako rozbieg.
+sesja zarejestrowała **nieprzetworzone kandydatury tarcia**, **nie przerywa terminala** —
+zapisuje znacznik `~/.claude/learning-loop/pending-reflect/<session_id>.json` (otagowany `cwd`,
+ze `score` i liczbą kandydatur). Na starcie następnej sesji **tego samego projektu**
+`memory-retrieval` pokazuje „masz N pending /reflect". `/reflect` czyści znaczniki projektu po
+przetworzeniu. Dzięki temu kosztowna tura `/reflect` (rozumowanie LLM) nie blokuje Cię w locie.
+
+**Dlaczego odroczenie, nie blokowanie:** hooki to milisekundy I/O, ale dawne `decision: block`
+zmuszało agenta do natychmiastowego `/reflect` w środku pracy. Tego nie da się puścić „w tle",
+bo to sam agent = ta sesja. Odroczenie przenosi *kiedy* refleksja się dzieje, nie *czy*.
 
 **Kiedy milczy:** poza repo git i bez kandydatur / przy czystym drzewie bez kandydatur / gdy
-już raz przypomniał w tym cyklu (flaga `stop_hook_active`).
+inny hook już blokował w tym cyklu (flaga `stop_hook_active`) — wtedy nie dubluje znacznika.
 
 **Dlaczego node, a nie bash:** napisany w czystym Node.js i uruchamiany w *exec form*
 (`{command: "node", args: [...]}`), bez powłoki. Dzięki temu jest **napisany OS-niezależnie**

@@ -39,6 +39,8 @@ warstwie epizodycznej. Tak, fakt → pamięć. Tak, procedura → skill.
 3. **Procedury → skille** (patrz Bramka skilla).
 4. **Handoff** (tylko jeśli używasz `remember`/`.remember/`): zaktualizuj
    `.remember/remember.md`. Jeśli nie używasz tej warstwy — pomiń krok.
+   **Wyczyść znaczniki pending-reflect** tego projektu (komenda niżej) — `reflection-gate`
+   zapisuje je odroczone (zamiast przerywać sesję), a ten krok zamyka pętlę po refleksji.
 5. **Atrybucja kandydatur tarcia (auto-capture).** Hook `friction-capture` zapisał surowe
    awarie narzędzi tej sesji. Wczytaj najświeższy plik kandydatur (komenda niżej) i dla
    KAŻDEGO wpisu oceń — znając kontekst sesji i to, których skilli FAKTYCZNIE użyłeś:
@@ -90,6 +92,29 @@ node -e '
 const fs=require("fs");const p=process.argv[1];
 fs.renameSync(p,p+".processed");console.log("oznaczono:",p+".processed");
 ' "<sciezka-pliku-z-PLIK:>"
+```
+
+## Komenda — wyczyść pending-reflect (krok 4)
+
+`reflection-gate` odracza nudge: zamiast przerywać Stop, zapisuje znacznik
+`~/.claude/learning-loop/pending-reflect/<sid>.json`. Po zakończonej refleksji usuń
+znaczniki **bieżącego projektu** (dopasowanie po `cwd`), by nie wisiały na starcie
+kolejnej sesji:
+
+```bash
+node -e '
+const fs=require("fs"),path=require("path"),os=require("os");
+const here=path.resolve(process.cwd());
+const dir=path.join(os.homedir(),".claude","learning-loop","pending-reflect");
+let n=0;
+try{for(const f of fs.readdirSync(dir)){
+  if(!f.endsWith(".json")) continue;
+  const p=path.join(dir,f);
+  try{const m=JSON.parse(fs.readFileSync(p,"utf8")||"{}");
+    if(m.cwd && path.resolve(m.cwd)===here){fs.rmSync(p);n++;}}catch{}
+}}catch{}
+console.log("wyczyszczono pending-reflect:",n);
+'
 ```
 
 ## Fakty (pamięć) — zawsze per-projekt

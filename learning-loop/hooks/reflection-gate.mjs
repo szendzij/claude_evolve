@@ -1,32 +1,20 @@
-// reflection-gate.mjs — Stop hook: po istotnej pracy zmuś do /reflect.
+// reflection-gate.mjs — Stop hook: po istotnej pracy ODŁÓŻ /reflect (nie blokuj).
 // OS-niezależny: czysty node (bez basha/coreutils). Exec form: `node <ten plik>`.
-// Loop-guard: stop_hook_active. Nudżuje tylko w repo git z istotnymi zmianami (score>=THRESHOLD).
-import { readFileSync, existsSync } from "node:fs";
+// Loop-guard: stop_hook_active. Zamiast przerywać Stop (dawne decision:block) zapisuje
+// znacznik pending-reflect/<session_id>.json — memory-retrieval pokaże go na starcie
+// następnej sesji TEGO projektu. /reflect czyści znaczniki po przetworzeniu.
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { join, dirname } from "node:path";
+import { join } from "node:path";
 import { homedir } from "node:os";
-import { fileURLToPath } from "node:url";
 
 const THRESHOLD = 50; // próg istotności (tunable przez edycję)
-const CHARS_PER_TOKEN = 4;
-
-function tokenSummary() {
-  const tok = chars => Math.round(chars / CHARS_PER_TOKEN);
-  const sz = p => { try { return readFileSync(p, "utf8").length; } catch { return 0; } };
-  const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-  const skills = ["reflect", "curator", "skill-review"];
-  const parts = skills.map(s => `/${s}: ~${tok(sz(join(root, "skills", s, "SKILL.md")))} tok`);
-  const hookFiles = ["memory-retrieval.mjs", "reflection-gate.mjs", "friction-capture.mjs", "token-report.mjs"];
-  const hooksChars = hookFiles.reduce((a, f) => a + sz(join(root, "hooks", f)), 0);
-  return "Token footprint — " + parts.join(" | ") + ` | Hooki: ~${tok(hooksChars)} tok`
-    + "\nPełny raport: ~/.claude/learning-loop/token-reports/latest.md";
-}
 
 // Wejście hooka z stdin (fd 0). Brak/zły JSON → pusty obiekt.
 let input = {};
 try { input = JSON.parse(readFileSync(0, "utf8") || "{}"); } catch { /* ignore */ }
 
-// Loop guard: jeśli już blokowaliśmy w tym cyklu stop, pozwól zakończyć.
+// Loop guard: jeśli inny hook już blokował w tym cyklu stop, nie dubluj znacznika.
 if (input.stop_hook_active) process.exit(0);
 
 function git(args) {
@@ -35,7 +23,7 @@ function git(args) {
   } catch { return null; }
 }
 
-// --- Signal A: unprocessed friction candidates for this session (independent of git) ---
+// --- Signal A: nieprzetworzone kandydatury tarcia tej sesji (niezależne od gita) ---
 let candidateCount = 0;
 let candidatePath = "";
 const sid = input.session_id;
@@ -47,9 +35,8 @@ if (sid) {
   }
 }
 
-// --- Signal B: git diff size (0 when outside a repo or the tree is clean) ---
+// --- Signal B: rozmiar git diff (0 poza repo lub gdy drzewo czyste) ---
 let score = 0;
-let stat = "";
 const inside = git(["rev-parse", "--is-inside-work-tree"]);
 if (inside && inside.trim() === "true" && (git(["status", "--porcelain"]) || "").trim()) {
   const changedLines = (args) => {
@@ -62,22 +49,24 @@ if (inside && inside.trim() === "true" && (git(["status", "--porcelain"]) || "")
   const untracked = (git(["ls-files", "--others", "--exclude-standard"]) || "")
     .split("\n").filter(Boolean).length;
   score = tracked + untracked * 3;
-  stat = (git(["diff", "--stat"]) || "").split("\n").slice(-20).join("\n");
 }
 
-// --- Decide: nudge if either signal fires ---
+// --- Decyzja: jeśli żaden sygnał nie odpala, milcz (i nie zapisuj znacznika) ---
 if (score < THRESHOLD && candidateCount === 0) process.exit(0);
 
-let reason = "Uruchom /reflect: wyekstrahuj trwałe wnioski i powtarzalne procedury wg Memory "
-  + "Routing (Konstytucja Pamięci w skillu reflect), zaktualizuj handoff.";
-if (score >= THRESHOLD) {
-  reason += "\nSesja z niezapisanymi zmianami (score " + score + ").\nRozbieg (git diff --stat):\n" + stat;
-}
-if (candidateCount > 0) {
-  reason += "\nTa sesja zarejestrowała " + candidateCount + " kandydatur tarcia: " + candidatePath
-    + "\nPrzejrzyj je w /reflect i przypisz do właściwego FRICTION.md.";
-}
+// --- Tryb odroczony: zapisz znacznik pending-reflect zamiast blokować Stop ---
+const cwd = input.cwd || process.cwd();
+const pendingDir = join(homedir(), ".claude", "learning-loop", "pending-reflect");
+try {
+  mkdirSync(pendingDir, { recursive: true });
+  writeFileSync(join(pendingDir, (sid || "no-session") + ".json"), JSON.stringify({
+    session_id: sid || "",
+    cwd,
+    score,
+    candidates: candidateCount,
+    candidatePath,
+    ts: new Date().toISOString(),
+  }, null, 2));
+} catch { /* never throw — hook nie może generować własnego tarcia */ }
 
-try { reason += "\n\n" + tokenSummary(); } catch { /* never throw */ }
-process.stdout.write(JSON.stringify({ decision: "block", reason }));
 process.exit(0);
