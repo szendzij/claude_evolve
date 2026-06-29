@@ -91,3 +91,38 @@ test("kandydatury tarcia -> reason zawiera sciezke i licznik", () => {
   assert.match(reason, /2 kandydatur/);
   assert.match(reason, /sX\.jsonl/);
 });
+
+function seedCandidates(home, sid, lines) {
+  const fdir = join(home, ".claude", "learning-loop", "friction-candidates");
+  mkdirSync(fdir, { recursive: true });
+  writeFileSync(join(fdir, sid + ".jsonl"), lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
+}
+
+test("R1: czyste drzewo + kandydatury -> block (plug na N2)", () => {
+  const d = gitRepo();
+  commitFile(d, "a.txt", "x\n"); // tree clean after commit
+  const home = freshDir();
+  seedCandidates(home, "r1", [{ tool: "Bash", error: "boom" }, { tool: "Edit", error: "nope" }]);
+  const { code, out } = runHook({ session_id: "r1" }, d, { HOME: home, USERPROFILE: home });
+  assert.equal(code, 0);
+  const reason = JSON.parse(out).reason;
+  assert.match(reason, /2 kandydatur/);
+  assert.match(reason, /r1\.jsonl/);
+});
+
+test("R2: poza repo git + kandydatury -> block", () => {
+  const home = freshDir();
+  seedCandidates(home, "r2", [{ tool: "Bash", error: "boom" }]);
+  const { code, out } = runHook({ session_id: "r2" }, freshDir(), { HOME: home, USERPROFILE: home });
+  assert.equal(code, 0);
+  assert.equal(JSON.parse(out).decision, "block");
+});
+
+test("R3: czyste drzewo + session_id bez pliku kandydatur -> milczy", () => {
+  const d = gitRepo();
+  commitFile(d, "a.txt", "x\n");
+  const home = freshDir(); // no candidates seeded
+  const { code, out } = runHook({ session_id: "r3" }, d, { HOME: home, USERPROFILE: home });
+  assert.equal(code, 0);
+  assert.equal(out, "");
+});

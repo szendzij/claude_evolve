@@ -21,45 +21,48 @@ function git(args) {
   } catch { return null; }
 }
 
-// Nudge tylko wewnątrz repo git.
-const inside = git(["rev-parse", "--is-inside-work-tree"]);
-if (!inside || inside.trim() !== "true") process.exit(0);
-
-// Jest jakakolwiek praca? (porcelain łapie też pliki nieśledzone)
-const porcelain = git(["status", "--porcelain"]) || "";
-if (!porcelain.trim()) process.exit(0);
-
-// Próg istotności: zmienione linie (tracked working+staged) + (liczba untracked × 3).
-function changedLines(args) {
-  const s = git(args) || "";
-  const ins = Number((s.match(/(\d+) insertion/) || [, 0])[1]);
-  const del = Number((s.match(/(\d+) deletion/) || [, 0])[1]);
-  return ins + del;
-}
-const tracked = changedLines(["diff", "--shortstat"]) + changedLines(["diff", "--cached", "--shortstat"]);
-const untracked = (git(["ls-files", "--others", "--exclude-standard"]) || "")
-  .split("\n").filter(Boolean).length;
-const score = tracked + untracked * 3;
-if (score < THRESHOLD) process.exit(0);
-
-// Rozbieg.
-const stat = (git(["diff", "--stat"]) || "").split("\n").slice(-20).join("\n");
-
-// Spięcie z #3: kandydatury tarcia tej sesji.
-let frictionNote = "";
+// --- Signal A: unprocessed friction candidates for this session (independent of git) ---
+let candidateCount = 0;
+let candidatePath = "";
 const sid = input.session_id;
 if (sid) {
-  const f = join(homedir(), ".claude", "learning-loop", "friction-candidates", sid + ".jsonl");
-  if (existsSync(f)) {
-    const n = readFileSync(f, "utf8").split("\n").filter(Boolean).length;
-    if (n > 0) frictionNote = "\nTa sesja zarejestrowała " + n + " kandydatur tarcia: " + f
-      + "\nPrzejrzyj je w /reflect i przypisz do właściwego FRICTION.md.";
+  candidatePath = join(homedir(), ".claude", "learning-loop", "friction-candidates", sid + ".jsonl");
+  if (existsSync(candidatePath)) {
+    try { candidateCount = readFileSync(candidatePath, "utf8").split("\n").filter(Boolean).length; }
+    catch { candidateCount = 0; }
   }
 }
 
-const reason = "Sesja z niezapisanymi zmianami (score " + score + "). Uruchom /reflect: wyekstrahuj "
-  + "trwałe wnioski i powtarzalne procedury wg Memory Routing (Konstytucja Pamięci w skillu reflect), "
-  + "zaktualizuj handoff." + frictionNote + "\nRozbieg (git diff --stat):\n" + stat;
+// --- Signal B: git diff size (0 when outside a repo or the tree is clean) ---
+let score = 0;
+let stat = "";
+const inside = git(["rev-parse", "--is-inside-work-tree"]);
+if (inside && inside.trim() === "true" && (git(["status", "--porcelain"]) || "").trim()) {
+  const changedLines = (args) => {
+    const s = git(args) || "";
+    const ins = Number((s.match(/(\d+) insertion/) || [, 0])[1]);
+    const del = Number((s.match(/(\d+) deletion/) || [, 0])[1]);
+    return ins + del;
+  };
+  const tracked = changedLines(["diff", "--shortstat"]) + changedLines(["diff", "--cached", "--shortstat"]);
+  const untracked = (git(["ls-files", "--others", "--exclude-standard"]) || "")
+    .split("\n").filter(Boolean).length;
+  score = tracked + untracked * 3;
+  stat = (git(["diff", "--stat"]) || "").split("\n").slice(-20).join("\n");
+}
+
+// --- Decide: nudge if either signal fires ---
+if (score < THRESHOLD && candidateCount === 0) process.exit(0);
+
+let reason = "Uruchom /reflect: wyekstrahuj trwałe wnioski i powtarzalne procedury wg Memory "
+  + "Routing (Konstytucja Pamięci w skillu reflect), zaktualizuj handoff.";
+if (score >= THRESHOLD) {
+  reason += "\nSesja z niezapisanymi zmianami (score " + score + ").\nRozbieg (git diff --stat):\n" + stat;
+}
+if (candidateCount > 0) {
+  reason += "\nTa sesja zarejestrowała " + candidateCount + " kandydatur tarcia: " + candidatePath
+    + "\nPrzejrzyj je w /reflect i przypisz do właściwego FRICTION.md.";
+}
 
 process.stdout.write(JSON.stringify({ decision: "block", reason }));
 process.exit(0);
