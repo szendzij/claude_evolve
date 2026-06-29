@@ -1,7 +1,7 @@
 // memory-retrieval.mjs — SessionStart hook: inline recall of relevant per-project memory.
 // OS-independent (pure node, exec form). Always exit 0, never blocks, never throws —
 // must not generate its own friction. Locates memory; later tasks add ranking + injection.
-import { readFileSync, existsSync, statSync } from "node:fs";
+import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, resolve, relative, sep } from "node:path";
 import { homedir } from "node:os";
@@ -119,7 +119,32 @@ function main() {
   const entries = parseIndex(indexText);
   const signals = gatherSignals(cwd);
   const picked = entries.length ? selectFacts(entries, memoryDir, signals) : [];
-  const additionalContext = buildBlock(indexText, signals, picked);
+  let additionalContext = buildBlock(indexText, signals, picked);
+
+  // Save memory injection size for token-report
+  const sid = input.session_id;
+  if (sid) {
+    const tokenDir = join(homedir(), ".claude", "learning-loop", "session-tokens");
+    try {
+      mkdirSync(tokenDir, { recursive: true });
+      writeFileSync(join(tokenDir, sid + ".json"),
+        JSON.stringify({ chars: additionalContext.length, ts: new Date().toISOString() }));
+    } catch { /* never throw — must not generate friction */ }
+  }
+
+  // Append last-session token footprint summary
+  try {
+    const r = JSON.parse(readFileSync(
+      join(homedir(), ".claude", "learning-loop", "token-reports", "latest.json"), "utf8") || "{}");
+    if (r.total_max?.tokens) {
+      const skillLine = Object.entries(r.skills || {})
+        .map(([k, v]) => `/${k} ~${v.tokens} tok`)
+        .join(", ");
+      additionalContext += "\n\n## Plugin footprint (last session)\n"
+        + `Memory injection: ~${r.memory_injection?.tokens || 0} tok | ${skillLine} | Hooks: ~${r.hooks?.tokens || 0} tok | Max: ~${r.total_max.tokens} tok`;
+    }
+  } catch { /* silent — no report yet or corrupted */ }
+
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: { hookEventName: "SessionStart", additionalContext },
   }));
