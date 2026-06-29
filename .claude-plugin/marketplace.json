@@ -3,13 +3,13 @@
   "owner": {
     "name": "Jakub Szendzielorz"
   },
-  "version": "1.4.0",
+  "version": "1.4.1",
   "plugins": [
     {
       "name": "learning-loop",
       "displayName": "Learning Loop",
       "description": "Closed learning loop: reflect captures, skill-review matures, curator archives. Artifacts route to the right scope (project by default).",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "source": "./learning-loop"
     }
   ]
