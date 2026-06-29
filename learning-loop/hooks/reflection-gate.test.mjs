@@ -62,7 +62,8 @@ test("zmiana ponizej progu -> milczy", () => {
 test("zmiana powyzej progu -> block", () => {
   const d = gitRepo();
   commitFile(d, "a.txt", "x\n");
-  writeFileSync(join(d, "a.txt"), Array.from({ length: 15 }, (_, i) => "line" + i).join("\n") + "\n");
+  // 55 insertions + 1 deletion = 56 > threshold 50
+  writeFileSync(join(d, "a.txt"), Array.from({ length: 55 }, (_, i) => "line" + i).join("\n") + "\n");
   const { code, out } = runHook({}, d);
   assert.equal(code, 0);
   assert.equal(JSON.parse(out).decision, "block");
@@ -71,7 +72,8 @@ test("zmiana powyzej progu -> block", () => {
 test("pliki niesledzone powyzej progu -> block (odwrocony dawny przypadek B4)", () => {
   const d = gitRepo();
   commitFile(d, "a.txt", "x\n");
-  for (const n of ["u1.txt", "u2.txt", "u3.txt", "u4.txt"]) writeFileSync(join(d, n), "new\n"); // 4*3=12
+  // 18 untracked files × 3 = 54 > threshold 50
+  for (let i = 0; i < 18; i++) writeFileSync(join(d, `u${i}.txt`), "new\n");
   const { code, out } = runHook({}, d);
   assert.equal(code, 0);
   assert.equal(JSON.parse(out).decision, "block");

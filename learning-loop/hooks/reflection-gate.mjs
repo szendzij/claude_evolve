@@ -7,7 +7,7 @@ import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
-const THRESHOLD = 10; // próg istotności (tunable przez edycję)
+const THRESHOLD = 50; // próg istotności (tunable przez edycję)
 const CHARS_PER_TOKEN = 4;
 
 function tokenSummary() {

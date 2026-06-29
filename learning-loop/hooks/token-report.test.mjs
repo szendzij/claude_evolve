@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { setTimeout as delay } from "node:timers/promises";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -29,17 +30,26 @@ function readReport(home) {
   return JSON.parse(readFileSync(reportPath(home), "utf8"));
 }
 
+// Poll until the background worker creates the file or we time out.
+async function waitForFile(path, timeout = 2000) {
+  const start = Date.now();
+  while (!existsSync(path)) {
+    if (Date.now() - start > timeout) throw new Error(`File not created within ${timeout}ms: ${path}`);
+    await delay(25);
+  }
+}
+
 test("T1: exit 0 zawsze, nawet bez session_id", () => {
   const home = freshHome();
   const { code } = runHook({}, home);
   assert.equal(code, 0);
 });
 
-test("T2: tworzy latest.json z prawidlowa struktura", () => {
+test("T2: tworzy latest.json z prawidlowa struktura", async () => {
   const home = freshHome();
   const { code } = runHook({ session_id: "test-session" }, home);
   assert.equal(code, 0);
-  assert.ok(existsSync(reportPath(home)), "latest.json powinien istniec");
+  await waitForFile(reportPath(home));
   const r = readReport(home);
   assert.equal(r.session_id, "test-session");
   assert.ok(typeof r.memory_injection?.tokens === "number");
@@ -49,18 +59,18 @@ test("T2: tworzy latest.json z prawidlowa struktura", () => {
   assert.ok("skill-review" in (r.skills || {}));
 });
 
-test("T3: tworzy latest.md z czytelna trescia", () => {
+test("T3: tworzy latest.md z czytelna trescia", async () => {
   const home = freshHome();
   runHook({ session_id: "test-md" }, home);
   const mdPath = join(home, ".claude", "learning-loop", "token-reports", "latest.md");
-  assert.ok(existsSync(mdPath), "latest.md powinien istniec");
+  await waitForFile(mdPath);
   const content = readFileSync(mdPath, "utf8");
   assert.match(content, /Token Footprint/);
   assert.match(content, /\/reflect/);
   assert.match(content, /Max total/);
 });
 
-test("T4: czyta rozmiar iniekcji z session-tokens", () => {
+test("T4: czyta rozmiar iniekcji z session-tokens", async () => {
   const home = freshHome();
   const sid = "with-injection";
   const tokenDir = join(home, ".claude", "learning-loop", "session-tokens");
@@ -69,15 +79,16 @@ test("T4: czyta rozmiar iniekcji z session-tokens", () => {
     JSON.stringify({ chars: 2000, ts: new Date().toISOString() }));
 
   runHook({ session_id: sid }, home);
-
+  await waitForFile(reportPath(home));
   const r = readReport(home);
   assert.equal(r.memory_injection.chars, 2000);
   assert.equal(r.memory_injection.tokens, 500); // 2000/4
 });
 
-test("T5: bez pliku session-tokens -> memory_injection = 0 tok", () => {
+test("T5: bez pliku session-tokens -> memory_injection = 0 tok", async () => {
   const home = freshHome();
   runHook({ session_id: "no-injection" }, home);
+  await waitForFile(reportPath(home));
   const r = readReport(home);
   assert.equal(r.memory_injection.chars, 0);
   assert.equal(r.memory_injection.tokens, 0);
