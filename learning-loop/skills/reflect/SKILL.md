@@ -69,18 +69,17 @@ warstwie epizodycznej. Tak, fakt → pamięć. Tak, procedura → skill.
 
 ## Komendy — kandydatury tarcia
 
-Wczytaj najświeższy plik kandydatur (bieżąca sesja):
+Wczytaj plik kandydatur **bieżącej sesji** (scope po `CLAUDE_CODE_SESSION_ID` — nigdy „najnowszy globalnie", bo to czytałoby tarcie innych projektów):
 
 ```bash
 node -e '
 const fs=require("fs"),path=require("path"),os=require("os");
-const dir=path.join(os.homedir(),".claude","learning-loop","friction-candidates");
-let files=[]; try{files=fs.readdirSync(dir).filter(f=>f.endsWith(".jsonl"));}catch{}
-if(!files.length){console.log("(brak kandydatur tarcia)");process.exit(0);}
-files=files.map(f=>({f,m:fs.statSync(path.join(dir,f)).mtimeMs})).sort((a,b)=>b.m-a.m);
-const latest=path.join(dir,files[0].f);
-console.log("PLIK:",latest);
-for(const ln of fs.readFileSync(latest,"utf8").split("\n").filter(Boolean)) console.log(ln);
+const sid=process.env.CLAUDE_CODE_SESSION_ID;
+if(!sid){console.log("(brak CLAUDE_CODE_SESSION_ID — pomijam auto-skan; wskaż plik ręcznie)");process.exit(0);}
+const f=path.join(os.homedir(),".claude","learning-loop","friction-candidates",sid+".jsonl");
+if(!fs.existsSync(f)){console.log("(brak kandydatur tarcia dla tej sesji)");process.exit(0);}
+console.log("PLIK:",f);
+for(const ln of fs.readFileSync(f,"utf8").split("\n").filter(Boolean)) console.log(ln);
 '
 ```
 
