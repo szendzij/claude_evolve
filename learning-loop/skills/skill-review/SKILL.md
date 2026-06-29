@@ -27,15 +27,20 @@ Obejmuje skille GLOBALNE (`~/.claude/skills/`) i PROJEKTOWE (`./.claude/skills/`
 - **Nie-destrukcyjnie:** każdy diff za potwierdzeniem usera. Dowód czyścisz dopiero
   PO zastosowaniu poprawki.
 - **Wpis nieważny** (brak `expected` lub `actual`) → pomiń, nie zgaduj.
+- **Recydywa = sygnał systemowy:** ≥2 podobne wpisy → priorytet i rozważenie przebudowy, nie kolejnej łaty.
 
 ## Procedure
 
 1. **Skanuj** `~/.claude/skills/*/FRICTION.md` ORAZ `./.claude/skills/*/FRICTION.md`; zbierz
    pliki z ≥1 ważnym wpisem (komenda niżej), z etykietą zasięgu `[global]`/`[project]`.
 2. Dla każdego skilla: wczytaj `SKILL.md` + ważne wpisy z `FRICTION.md`.
-3. **Zaproponuj diff** zakotwiczony w `expected`/`actual` — wskaż, którego wpisu dotyczy.
-4. **Po potwierdzeniu** usera zastosuj edycję `SKILL.md` (mtime → sygnał życia dla curatora).
-5. **Wyczyść** skonsumowane wpisy z `FRICTION.md`. Wpis świadomie nienaprawiany →
+3. **Priorytet recydywy.** Zanim zaproponujesz fixy, **grupuj wpisy o podobnym `expected`/`actual`**.
+   Wpisy powtarzające się (**≥2** w bieżącym `FRICTION.md`) traktuj priorytetowo — to sygnał,
+   że poprzedni fix nie zadziałał albo problem jest systemowy: rozważ **głębszą przebudowę skilla,
+   nie kolejną łatę**. Grupowanie to Twój osąd nad treścią wpisów (nie helper).
+4. **Zaproponuj diff** zakotwiczony w `expected`/`actual` — wskaż, którego wpisu dotyczy.
+5. **Po potwierdzeniu** usera zastosuj edycję `SKILL.md` (mtime → sygnał życia dla curatora).
+6. **Wyczyść** skonsumowane wpisy z `FRICTION.md`. Wpis świadomie nienaprawiany →
    oznacz `- **won't-fix:** <powód>` (zostaje, pomijany w kolejnych przeglądach).
 
 ## Format FRICTION.md (wejście)
@@ -59,7 +64,8 @@ for(const [scope,root] of roots){
   for(const e of es){
     if(!e.isDirectory()||e.name.startsWith(".")) continue;
     const f=path.join(root,e.name,"FRICTION.md"); if(!fs.existsSync(f)) continue;
-    const n=(fs.readFileSync(f,"utf8").match(/^\s*-\s*\*\*expected:\*\*/mg)||[]).length;
+    const txt=fs.readFileSync(f,"utf8");
+    const n=txt.split(/^##\s/m).filter(b=>/\*\*expected:\*\*/.test(b)&&/\*\*actual:\*\*/.test(b)&&!/\*\*won.t-fix:\*\*/.test(b)).length;
     if(n>0) console.log(`[${scope}] ${e.name}  ${n} wpis(y)`);
   }
 }'
@@ -67,7 +73,7 @@ for(const [scope,root] of roots){
 
 ## Verification
 
-- Lista zawiera skille z `~/.claude/skills/*` i `./.claude/skills/*` mające ważny wpis (`expected`), z etykietą zasięgu.
+- Lista zawiera skille z `~/.claude/skills/*` i `./.claude/skills/*` mające ≥1 ważny pending wpis (expected ∧ actual ∧ ¬won't-fix), z etykietą zasięgu.
 - Skille pluginowe nigdy się nie pojawiają (inne drzewo).
 - Każda propozycja wskazuje konkretny wpis dowodowy.
 - Po naprawie `FRICTION.md` nie zawiera już skonsumowanego wpisu.
