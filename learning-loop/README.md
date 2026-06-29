@@ -157,6 +157,8 @@ Obejmuje skille globalne (`~/.claude/skills/`) i projektowe (`./.claude/skills/`
 Nigdy nie wymyśla ulepszeń „dla jakości", nigdy nie ocenia skilla na zimno.
 Tyka **wyłącznie** auto-skille (`origin: reflect-loop`) — skille pluginów i Twoje ręczne skille
 leżą poza zasięgiem.
+Wpisy powtarzające się (**≥2** w bieżącym `FRICTION.md`) traktuje priorytetowo — recydywa to
+sygnał, że problem jest systemowy (głębsza przebudowa zamiast kolejnej łaty).
 
 ### `/curator` — higiena cyklu życia (sprzątaczka)
 
@@ -166,6 +168,9 @@ Archiwizuje (**NIGDY nie kasuje**) poza root odkrywania: `~/.claude/skills-archi
 `./.claude/skills-archive/`. Pomija `pinned: true`. Czyści też martwe/duplikatowe linie `MEMORY.md`.
 Rozdziela też kandydatury tarcia: `*.processed` (striageowane logi, > 7 dni) od nieprzetworzonych
 `*.jsonl` (lekcje, > 21 dni) — te drugie raportuje jako **utratę** i nigdy nie kasuje domyślnie.
+Raport pokazuje też **pending-friction** (`Nf`, flaga `!`) obok `mtime` — skille z nieprzetworzonym
+tarciem warto przejrzeć niezależnie od tego, jak dawno były edytowane (świeży `mtime` może maskować
+skill łatany w kółko).
 
 **Kiedy:** okresowo (np. raz w miesiącu), gdy `~/.claude/skills/` lub `./.claude/skills/` się rozrasta.
 
