@@ -310,10 +310,12 @@ Format wpisu tarcia:
 /plugin install learning-loop@claude_evolve
 ```
 
-**Wersja 1.4.0** domyka czterowarstwową pętlę: SessionStart retrieval (`memory-retrieval`),
-integralność wejścia (trigger na nieprzetworzonych kandydaturach + filtr szumu), sygnały zdrowia
-cyklu skilli (pending-friction w `/curator`, priorytet recydywy w `/skill-review`) oraz warstwę
-outcome (`RESOLVED.md` + raport held/recurred jako ewidencja, że naprawa zmieniła zachowanie).
+**Wersja 1.4.1** (patch na 1.4.0). 1.4.0 domknęło czterowarstwową pętlę: SessionStart retrieval
+(`memory-retrieval`), integralność wejścia (trigger na nieprzetworzonych kandydaturach + filtr
+szumu), sygnały zdrowia cyklu skilli (pending-friction w `/curator`, priorytet recydywy
+w `/skill-review`) oraz warstwę outcome (`RESOLVED.md` + raport held/recurred jako ewidencja, że
+naprawa zmieniła zachowanie). 1.4.1 zamyka wyciek cross-project: `/reflect` czyta i konsumuje
+kandydatury tarcia tylko bieżącej sesji (scope po `CLAUDE_CODE_SESSION_ID`), nie „najnowszy globalnie".
 Aby zaktualizować już zainstalowany plugin: `/plugin marketplace update claude_evolve` a następnie
 `/plugin update learning-loop@claude_evolve`.
 
