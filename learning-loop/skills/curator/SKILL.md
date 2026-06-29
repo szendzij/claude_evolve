@@ -173,6 +173,41 @@ console.log("usunieto",n,".processed > 7 dni");
 '
 ```
 
+## Raport outcome (held vs recurred — ewidencja T8)
+
+Skanuje `<skill>/RESOLVED.md` w obu korzeniach i podsumowuje skuteczność napraw. `recurred` =
+fix się nie utrzymał (głębsza przebudowa, nie kolejna łata). `held ≥30 dni` = kandydat na dowód,
+że naprawa zmieniła zachowanie (T8). Sygnał, nie wyrok — decyzja u usera.
+
+```bash
+node -e '
+const fs=require("fs"),path=require("path"),os=require("os");
+const roots=[["global",path.join(os.homedir(),".claude","skills")],
+             ["project",path.join(process.cwd(),".claude","skills")]];
+const now=Date.now(), DAY=864e5; let HELD=0,REC=0,EV=0;
+for(const [scope,root] of roots){
+  let es=[]; try{es=fs.readdirSync(root,{withFileTypes:true});}catch{continue;}
+  for(const e of es){
+    if(!e.isDirectory()||e.name.startsWith(".")) continue;
+    const f=path.join(root,e.name,"RESOLVED.md"); if(!fs.existsSync(f)) continue;
+    let h=0,r=0;
+    for(const b of fs.readFileSync(f,"utf8").split(/^##\s/m).slice(1)){
+      if(/\*\*status:\*\*\s*recurred/i.test(b)){r++;continue;}
+      if(/\*\*status:\*\*\s*held/i.test(b)){h++;
+        const dm=b.match(/^(\d{4}-\d{2}-\d{2})/);
+        if(dm&&(now-Date.parse(dm[1]))/DAY>=30) EV++;
+      }
+    }
+    if(h||r) console.log(`[${scope}] ${e.name}  held:${h} recurred:${r}`);
+    HELD+=h;REC+=r;
+  }
+}
+console.log(`OUTCOME: held ${HELD}, recurred ${REC}. T8-evidence (held >=30d): ${EV}.`);
+if(REC>0) console.log("recurred = fix sie nie utrzymal -> rozwaz glebsza przebudowe, nie kolejna late.");
+if(EV>0) console.log("held >=30d = kandydat na dowod zmiany zachowania (T8).");
+'
+```
+
 ## Verification
 
 - Raport zawiera skille `origin: reflect-loop` z OBU korzeni, niepinowane, posortowane wg mtime rosnąco.
@@ -180,3 +215,4 @@ console.log("usunieto",n,".processed > 7 dni");
 - Archiwum ląduje w `skills-archive/` (poza `skills/`); zarchiwizowany skill znika z `/`-autocomplete.
 - Pliki w archiwum dają się przywrócić (przeniesienie z powrotem).
 - Raport pokazuje kolumnę `Nf` (ważne pending wpisy: expected ∧ actual ∧ ¬won't-fix) i flagę `!` przy `Nf>0`; sort wg mtime rosnąco zachowany.
+- Raport outcome liczy `held`/`recurred` z `RESOLVED.md` (bloki `split(/^##\s/m).slice(1)`); `held ≥30d` zliczone jako T8-evidence; noty recurred/evidence pojawiają się warunkowo.
