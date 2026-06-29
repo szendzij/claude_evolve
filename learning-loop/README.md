@@ -187,6 +187,15 @@ skill łatany w kółko).
 (przywrócenie = przeniesienie z powrotem). Curator **raportuje**, decyzję podejmujesz Ty; bez progu
 czasowego i bez oceny treści przez LLM. `pinned: true` wyłącza skill z każdej tranzycji.
 
+### Warstwa outcome — czy naprawa zadziałała
+
+`/skill-review` przy każdej naprawie zapisuje rozwiązanie do `<skill>/RESOLVED.md`
+(`status: held`). `/reflect`, przypisując nowe tarcie, sprawdza `RESOLVED.md`: jeśli to nawrót
+naprawionego wcześniej, oznacza go `recurred` i sygnalizuje „fix się nie utrzymał — głębsza
+przebudowa, nie kolejna łata". `/curator` raportuje **held vs recurred**: `held ≥30 dni` bez
+nawrotu to kandydat na **dowód, że zapisana lekcja zmieniła zachowanie** (domknięcie pętli).
+Dowód pozytywny jest z natury opóźniony (wymaga upływu czasu); nawrót widać natychmiast.
+
 ### SessionStart hook (`memory-retrieval`) — przywołanie pamięci
 
 **Co robi:** na starcie sesji wyprowadza katalog pamięci per-projekt z `cwd`, czyta
@@ -287,6 +296,7 @@ Format wpisu tarcia:
 | Proceduralna (projekt) | procedury projektowe | `.claude/skills/` |
 | Proceduralna (globalna) | procedury przenośne | `~/.claude/skills/` |
 | Tarcie | dowód do poprawki | `<skill>/FRICTION.md` |
+| Outcome | czy naprawa skilla się utrzymała | `<skill>/RESOLVED.md` (held/recurred) → raport `/curator` |
 | Przejściowa | handoff | `.remember/remember.md` |
 | Archiwum | wycofane auto-skille | `~/.claude/skills-archive/` lub `./.claude/skills-archive/` |
 | Retrieval | przywołanie faktów na starcie sesji | `memory-retrieval` (SessionStart) → `additionalContext` |
@@ -343,3 +353,6 @@ powłoki, bez Git for Windows). Zweryfikowany na Windows; zautomatyzowany test h
   `friction-capture` pomija przy tym **szum definicyjny** (EISDIR z czytania katalogu, błędy
   składni powłoki) — nie zapisuje go jako kandydatury, by `/reflect` nie tonął w przejściowych
   awariach narzędzi.
+- **Brak natychmiastowego dowodu T8** — warstwa outcome (`RESOLVED.md` + raport held/recurred)
+  czyni „lekcja → zmiana zachowania" *mierzalnym*, ale dowód pozytywny (`held ≥30d`) wymaga
+  realnego upływu czasu i użycia; mierzone jest tylko ramię skilli, nie przywołanych faktów.
