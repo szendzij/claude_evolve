@@ -58,6 +58,14 @@ warstwie epizodycznej. Tak, fakt → pamięć. Tak, procedura → skill.
    - **actual:** <co faktycznie wyszło / dlaczego zawiodło>
    - **fix-hint:** <opcjonalnie>
    ```
+7. **Detekcja nawrotu (outcome).** Dla KAŻDEGO tarcia przypisanego do skilla w krokach 5–6:
+   sprawdź `<skill>/RESOLVED.md` (jeśli istnieje). Jeśli nowe tarcie to **nawrót** rozwiązanego
+   wcześniej (osąd: podobne `was`):
+   - w `RESOLVED.md` zmień tę pozycję `- **status:** held` → `- **status:** recurred <YYYY-MM-DD>`,
+   - **wyraźnie zaznacz w wynikach:** „fix z DNIA się nie utrzymał — sygnał do GŁĘBSZEJ przebudowy
+     skilla, nie cichego ponownego zapisania tego samego tarcia",
+   - wpis tarcia i tak trafia do `FRICTION.md` (skill-review obsłuży go świadomy, że to nawrót).
+   To osąd LLM (fuzzy match `was`), nie mechaniczny matcher.
 
 ## Komendy — kandydatury tarcia
 
@@ -209,3 +217,4 @@ console.log(fs.existsSync(g)?("KOLIZJA: globalny \""+name+"\" istnieje -> przebi
 - Dla skilla projektowego komenda kolizji potwierdziła „BRAK kolizji" lub dodano wyróżnik.
 - Heurystyka śladów projektu uruchomiona; ślady wzięte pod uwagę w Etapie 2 bramki.
 - Wpisy `FRICTION.md` mają `expected` i `actual`.
+- Nawrót rozwiązanego tarcia: odpowiednia pozycja w `<skill>/RESOLVED.md` oznaczona `recurred <data>` + jawny sygnał „fix się nie utrzymał".
