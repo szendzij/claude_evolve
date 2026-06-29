@@ -40,8 +40,13 @@ Obejmuje skille GLOBALNE (`~/.claude/skills/`) i PROJEKTOWE (`./.claude/skills/`
    nie kolejną łatę**. Grupowanie to Twój osąd nad treścią wpisów (nie helper).
 4. **Zaproponuj diff** zakotwiczony w `expected`/`actual` — wskaż, którego wpisu dotyczy.
 5. **Po potwierdzeniu** usera zastosuj edycję `SKILL.md` (mtime → sygnał życia dla curatora).
-6. **Wyczyść** skonsumowane wpisy z `FRICTION.md`. Wpis świadomie nienaprawiany →
-   oznacz `- **won't-fix:** <powód>` (zostaje, pomijany w kolejnych przeglądach).
+6. **Zapisz outcome, potem wyczyść.** Po zastosowaniu fixu: **najpierw** dopisz rozwiązanie do
+   `<skill-dir>/RESOLVED.md` (format niżej, `**status:** held`), **dopiero potem** usuń
+   skonsumowany wpis z `FRICTION.md`. Jeśli naprawiany wpis to **nawrót** (w `RESOLVED.md`
+   istnieje już pozycja `**status:** recurred` dla tego tarcia) → to **repeat-fix**: rozważ
+   **głębszą przebudowę skilla, nie kolejną łatę** i odnotuj to w propozycji. Wpis świadomie
+   nienaprawiany → oznacz `- **won't-fix:** <powód>` w `FRICTION.md` (zostaje, pomijany;
+   **NIE** trafia do `RESOLVED.md` — to nie rozwiązanie).
 
 ## Format FRICTION.md (wejście)
 
@@ -51,6 +56,20 @@ Obejmuje skille GLOBALNE (`~/.claude/skills/`) i PROJEKTOWE (`./.claude/skills/`
 - **actual:** <co faktycznie wyszło / dlaczego zawiodło>
 - **fix-hint:** <opcjonalnie: kierunek poprawki>
 ```
+
+## Format RESOLVED.md (outcome — trwały zapis rozwiązań)
+
+Sibling `FRICTION.md`. Jeden blok na rozwiązanie; `skill-review` dopisuje przy naprawie,
+`reflect` flipuje `status` przy nawrocie, `/curator` raportuje held/recurred.
+
+```markdown
+## <YYYY-MM-DD> — <krótki tytuł tarcia>
+- **was:** <streszczenie expected≠actual, 1 linia>
+- **fix:** <co zmieniono w SKILL.md, 1 linia>
+- **status:** held
+```
+
+Przy wykrytym nawrocie: `- **status:** held` → `- **status:** recurred <YYYY-MM-DD>`.
 
 ## Komenda pomocnicza (lista skilli z tarciem)
 
@@ -77,3 +96,4 @@ for(const [scope,root] of roots){
 - Skille pluginowe nigdy się nie pojawiają (inne drzewo).
 - Każda propozycja wskazuje konkretny wpis dowodowy.
 - Po naprawie `FRICTION.md` nie zawiera już skonsumowanego wpisu.
+- Po naprawie istnieje wpis w `<skill>/RESOLVED.md` (`status: held`) zanim wpis zniknął z `FRICTION.md`; `won't-fix` nie trafił do `RESOLVED.md`.
