@@ -300,6 +300,11 @@ Format wpisu tarcia:
 /plugin install learning-loop@claude_evolve
 ```
 
+**Wersja 1.3.0** dodaje: SessionStart retrieval (`memory-retrieval`), integralność wejścia
+(trigger na nieprzetworzonych kandydaturach + filtr szumu), oraz sygnały zdrowia cyklu skilli
+(pending-friction w `/curator`, priorytet recydywy w `/skill-review`). Aby zaktualizować już
+zainstalowany plugin: `/plugin marketplace update claude_evolve` a następnie `/plugin update learning-loop@claude_evolve`.
+
 Po instalacji dostępne są `/reflect`, `/skill-review`, `/curator`, a Stop hook wpina się
 **automatycznie** — bez ręcznej edycji `settings.json`.
 
