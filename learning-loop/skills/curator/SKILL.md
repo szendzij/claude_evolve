@@ -22,6 +22,9 @@ przenosi do archiwum **poza drzewem odkrywania** (odwracalnie). Obejmuje skille 
 ## Inwarianty (twarde)
 
 - Tykasz WYŁĄCZNIE skille `metadata.origin: reflect-loop`. Ręcznych i pluginowych NIE rusza.
+- **Wykluczenie silnika:** mimo `origin: reflect-loop`, skille silnika pętli — `reflect`,
+  `skill-review`, `curator` (plugin `learning-loop`/`lore-keeper`) — NIGDY nie trafiają do
+  raportu ani archiwum. Pętla nie zarządza cyklem życia samej siebie.
 - **Brak automatycznego wyroku z wieku.** `mtime` to tylko sygnał do przeglądu; nie generujesz
   „listy do usunięcia" z samej daty. User decyduje per skill. **Bez progu odcięcia** — raport
   pokazuje wszystkie, najświeższe też (na końcu listy).

@@ -24,6 +24,10 @@ Obejmuje skille GLOBALNE (`~/.claude/skills/`) i PROJEKTOWE (`./.claude/skills/`
   Brak ważnego wpisu → brak propozycji. Nigdy nie wymyślasz ulepszeń „dla jakości".
 - **Zakres = lokalizacja:** tykasz `~/.claude/skills/*` ORAZ `./.claude/skills/*`. Skille
   pluginów (`~/.claude/plugins/...`) są poza tymi drzewami — NIE ruszasz.
+- **Wykluczenie silnika:** skille **silnika pętli** — `reflect`, `skill-review`, `curator`
+  (plugin `learning-loop`/`lore-keeper`) — NIGDY nie są przedmiotem recenzji ani edycji, nawet
+  jeśli ich `FRICTION.md` istnieje w źródle repo deweloperskiego. Pętla nie poprawia sama
+  siebie — to zwykła praca nad kodem (commit/handoff), nie auto-loop.
 - **Nie-destrukcyjnie:** każdy diff za potwierdzeniem usera. Dowód czyścisz dopiero
   PO zastosowaniu poprawki.
 - **Wpis nieważny** (brak `expected` lub `actual`) → pomiń, nie zgaduj.

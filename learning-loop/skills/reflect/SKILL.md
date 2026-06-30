@@ -15,6 +15,13 @@ wiedzę do właściwej warstwy I zasięgu. Nie zapisuje przebiegu sesji (to robi
 Zasada nadrzędna: **silnik globalny, wytwory domyślnie do bieżącego projektu.**
 Awans na globalny to rzadki wyjątek (patrz Bramka skilla, Etap 2).
 
+> **Wykluczenie silnika (twardy inwariant).** Pętla nie bierze siebie za przedmiot. Skille
+> silnika — `reflect`, `skill-review`, `curator` (plugin `learning-loop`/`lore-keeper`) — są
+> poza zasięgiem auto-pętli, niezależnie od lokalizacji: cache pluginu (`~/.claude/plugins/...`)
+> ORAZ źródło w repo deweloperskim (`learning-loop/skills/`, `lore-keeper/skills/`). Tarcie z
+> rozwijaniem samego silnika to zwykła praca nad kodem → commit/handoff, **nigdy**
+> `FRICTION.md`/`RESOLVED.md`.
+
 ## When to Use
 
 - Gdy hook `reflection-gate` poprosi po sesji z niezacommitowanymi zmianami.
@@ -48,12 +55,15 @@ warstwie epizodycznej. Tak, fakt → pamięć. Tak, procedura → skill.
      `<skill>/FRICTION.md` w istniejącym formacie (`expected`/`actual`/`fix-hint`),
      tłumacząc surową awarię na rozjazd `expected` ≠ `actual`.
    - **Błąd przejściowy / literówka / niepowiązany ze skillem** → odrzuć, nie zapisuj.
+   - **Tarcie dotyczące skilla silnika** (`reflect`/`skill-review`/`curator`) → odrzuć
+     (patrz **Wykluczenie silnika**); to praca nad kodem pluginu, nie wpis do pętli.
 
    To TY przypisujesz (hook tego nie robi — nie zna aktywnego skilla). Po przetworzeniu
    oznacz plik jako `.processed` (komenda niżej) — odwracalnie, by nie przerabiać go ponownie.
 6. **Tarcie ze skilli (capture).** Dla skilli, których FAKTYCZNIE użyłeś w tej sesji
    i które pokazały tarcie: dopisz wpis do `<skill-dir>/FRICTION.md`. Tylko realne
-   tarcie z tej sesji. Naprawia `/skill-review`. Format:
+   tarcie z tej sesji. **NIE dotyczy skilli silnika** (patrz **Wykluczenie silnika**).
+   Naprawia `/skill-review`. Format:
    ```markdown
    ## <YYYY-MM-DD>
    - **expected:** <co skill kazał zrobić>
