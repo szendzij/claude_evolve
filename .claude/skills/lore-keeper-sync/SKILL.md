@@ -17,13 +17,23 @@ Zamień `"learning-loop"` → `"lore-keeper"` **we wszystkich poniższych** (sou
 
 | Plik | Co zmienić |
 |---|---|
-| `hooks/memory-retrieval.mjs` | `session-tokens` path, `token-reports` path, nagłówek `"# Pamięć projektu (learning-loop)"` |
-| `hooks/reflection-gate.mjs` | `friction-candidates` path, referencja do `token-reports/latest.md` w `tokenSummary()` |
+| `hooks/memory-retrieval.mjs` | `session-tokens`, `token-reports`, `pending-reflect` paths; nagłówek `"# Pamięć projektu (learning-loop)"` |
+| `hooks/reflection-gate.mjs` | `friction-candidates` path, `pending-reflect` path |
 | `hooks/token-report.mjs` | `session-tokens` path, `token-reports` path; nagłówek MD: `"LORE Keeper — Token Footprint"` |
-| `hooks/reflection-gate.test.mjs` | `friction-candidates` w `seedCandidates()` i inline |
+| `hooks/reflection-gate.test.mjs` | `friction-candidates` + `pending-reflect` (`markerPath`, `seedCandidates`) |
+| `hooks/memory-retrieval.test.mjs` | `pending-reflect` w `seedPending()` |
 | `hooks/token-report.test.mjs` | `token-reports` w `reportPath()`, `session-tokens` w T4 |
+| `skills/reflect/SKILL.md` | **NOWE:** komenda „wyczyść pending-reflect (krok 4)" ma ścieżkę `~/.claude/learning-loop/pending-reflect/` |
 
-`hooks.json` i `skills/` **nie zawierają** hardcoded ścieżek runtime — kopiujesz bez zmian.
+`hooks.json` nie zawiera ścieżek runtime — kopiujesz bez zmian. **`skills/` MA jedną ścieżkę**
+(pending-reflect w `reflect/SKILL.md`) — dawne założenie „skills bez ścieżek" już nieaktualne.
+`reflect/FRICTION.md` bez ścieżek — kopiujesz/dopisujesz bez zmian.
+
+**Deterministyczny sposób (zalecany):** dla plików funkcjonalnych (2 hooki + 2 testy)
+napisz skrypt `.mjs` w scratchpadzie robiący `readFileSync → replaceAll("learning-loop","lore-keeper") → writeFileSync`
+i uruchom `node skrypt.mjs` — Node zachowuje UTF-8 bez BOM (emoji ⏳, polskie znaki). NIE wklejaj
+go inline w `node -e "..."` (regex/quoting pada na Windows). `SKILL.md` rób targetowanymi edycjami
+(by nie nadpisać frontmatter), `FRICTION.md` dopisaniem.
 
 ## Pułapka: testy też mają ścieżki
 
