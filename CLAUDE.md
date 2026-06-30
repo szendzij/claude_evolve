@@ -58,6 +58,7 @@ learning-loop/
 |---|---|---|
 | Semantic (facts) | Trwałe fakty per-projekt | `~/.claude/projects/<cwd-slug>/memory/` |
 | Procedural (skills) | Projektowe: `.claude/skills/`; Globalne: `~/.claude/skills/` |
+| Reguła (behavioral) | Trwałe dyrektywy „rób/nie rób" | `.claude/rules/reflect-loop.md` (auto-load); archiwum `.claude/rules-archive/` |
 | Friction | Dowód do poprawki skilla | `<skill>/FRICTION.md` |
 | Outcome | Czy naprawa się utrzymała | `<skill>/RESOLVED.md` (held/recurred) |
 | Pending reflect | Odroczony nudge /reflect (cwd-tagged) | `~/.claude/learning-loop/pending-reflect/<session_id>.json` |

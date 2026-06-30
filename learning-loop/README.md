@@ -87,7 +87,7 @@ Plugin to **warstwa decyzyjna nad tym magazynem** — zamyka pętlę, której na
 
 ---
 
-## Architektura: cztery warstwy pamięci („Konstytucja Pamięci")
+## Architektura: pięć warstw pamięci („Konstytucja Pamięci")
 
 Sercem pluginu jest jedna decyzja, którą podejmuje przy każdym wniosku: **do której warstwy
 to należy?** Warstwy nie konkurują — każda przechowuje inny rodzaj wiedzy i ma inny czas życia.
@@ -97,6 +97,7 @@ to należy?** Warstwy nie konkurują — każda przechowuje inny rodzaj wiedzy i
 | **Epizodyczna** | Co działo się w sesji (przebieg, stan) | `.remember/` (plugin `remember`, jeśli go masz) | krótki — log historii |
 | **Semantyczna** | Trwały fakt (decyzja, preferencja, niezmiennik) | pamięć **per-projekt** `~/.claude/projects/<hash>/memory/` | trwały |
 | **Proceduralna** | Powtarzalna procedura („jak zrobić X") | **skill** — projektowy `.claude/skills/` lub globalny `~/.claude/skills/` | trwały, dojrzewa |
+| **Reguła behawioralna** | Trwała dyrektywa „rób / nie rób" | `.claude/rules/reflect-loop.md` (auto-load Claude Code, bez `@import`) | trwały, gwarantowany recall |
 | **Przejściowa** | Co dalej w następnej sesji | `.remember/remember.md` (handoff) | do następnej sesji |
 
 **Reguła rozstrzygająca**, gdy nie wiadomo, gdzie coś włożyć:
@@ -106,8 +107,15 @@ to należy?** Warstwy nie konkurują — każda przechowuje inny rodzaj wiedzy i
 > - **Tak, i to fakt** → pamięć semantyczna (per-projekt).
 > - **Tak, i to procedura** → skill (proceduralna).
 
+Piąta warstwa to **reguła behawioralna** — trwała dyrektywa „rób / nie rób":
+
+- **Reguła behawioralna** → `.claude/rules/reflect-loop.md` (auto-load Claude Code, bez `@import`).
+  Trwała dyrektywa „rób / nie rób", ładowana **gwarantowanie co sesję** — w przeciwieństwie do faktu,
+  który podlega rankowanemu recall. `/reflect` ją zapisuje (za potwierdzeniem), `/curator` raportuje
+  po wieku i archiwizuje do `.claude/rules-archive/` (poza drzewem auto-load).
+
 Pętla **nie zapisuje** warstwy epizodycznej — od tego jest osobny plugin `remember`. Zajmuje
-się wyłącznie tym, co trwałe: faktami, procedurami i handoffem.
+się wyłącznie tym, co trwałe: faktami, procedurami, regułami i handoffem.
 
 ---
 
@@ -347,6 +355,7 @@ Format wpisu tarcia:
 | Semantyczna | trwałe fakty | `~/.claude/projects/<hash>/memory/` (per-projekt) |
 | Proceduralna (projekt) | procedury projektowe | `.claude/skills/` |
 | Proceduralna (globalna) | procedury przenośne | `~/.claude/skills/` |
+| Reguła (behawioralna) | trwałe dyrektywy „rób/nie rób" | `.claude/rules/reflect-loop.md` (auto-load); archiwum `.claude/rules-archive/` |
 | Tarcie | dowód do poprawki | `<skill>/FRICTION.md` |
 | Outcome | czy naprawa skilla się utrzymała | `<skill>/RESOLVED.md` (held/recurred) → raport `/curator` |
 | Przejściowa | handoff | `.remember/remember.md` |
@@ -361,6 +370,10 @@ Format wpisu tarcia:
 /plugin marketplace add szendzij/claude_evolve
 /plugin install learning-loop@claude_evolve
 ```
+
+**Wersja 1.4.7.** Dodano piątą warstwę pętli: **regułę behawioralną** (`.claude/rules/reflect-loop.md`,
+auto-load) — `/reflect` routuje trwałe korekty „rób/nie rób" jako gwarantowane instrukcje zamiast
+rankowanych faktów; `/curator` raportuje je po wieku markera i archiwizuje poza drzewo auto-load.
 
 **Wersja 1.4.6.** Wydania 1.4.2–1.4.6 to iteracje patch: odroczony `reflection-gate` (znacznik
 pending-reflect zamiast blokady terminala), raport footprintu tokenów (Stop hook), wykluczenie
