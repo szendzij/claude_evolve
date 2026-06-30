@@ -45,7 +45,9 @@ warstwie epizodycznej. Tak, fakt → pamięć. Tak, procedura → skill.
 2. **Fakty → pamięć per-projekt** (patrz Fakty).
 3. **Procedury → skille** (patrz Bramka skilla).
 4. **Handoff** (tylko jeśli używasz `remember`/`.remember/`): zaktualizuj
-   `.remember/remember.md`. Jeśli nie używasz tej warstwy — pomiń krok.
+   `.remember/remember.md` — **jeśli plik istnieje, wczytaj i zaktualizuj; jeśli NIE istnieje
+   (first-use w projekcie), utwórz go zapisem (Write), NIE Read** (Read na nieistniejącym pliku
+   pada). Jeśli nie używasz tej warstwy — pomiń krok.
    **Wyczyść znaczniki pending-reflect** tego projektu (komenda niżej) — `reflection-gate`
    zapisuje je odroczone (zamiast przerywać sesję), a ten krok zamyka pętlę po refleksji.
 5. **Atrybucja kandydatur tarcia (auto-capture).** Hook `friction-capture` zapisał surowe
@@ -208,28 +210,32 @@ for(const e of es){
 Po zapisaniu nowego `SKILL.md` uruchom lint frontmatter + heurystykę śladów projektu.
 Frontmatter to twardy wymóg; ślady projektu to **sygnał** wspierający Etap 2 bramki (nie blok).
 
-```bash
-node -e '
-const fs=require("fs");
-const t=fs.readFileSync(process.argv[1],"utf8");
-const fm=(t.match(/^---\r?\n([\s\S]*?)\r?\n---/)||[,""])[1];
-const body=t.replace(/^---\r?\n[\s\S]*?\r?\n---/,"");
-const probs=[];
-const name=(fm.match(/^name:\s*(.+)$/m)||[])[1];
-if(!name||!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name.trim())) probs.push("name: brak lub nie-kebab");
-const desc=(fm.match(/^description:\s*(.+)$/m)||[])[1];
-if(!desc){ probs.push("description: brak"); }
-else { const d=desc.trim(); if(d.length>60) probs.push("description: >60 ("+d.length+")"); if(!d.endsWith(".")) probs.push("description: bez kropki na koncu"); }
-if(!/origin:\s*reflect-loop/.test(fm)) probs.push("metadata.origin: brak reflect-loop");
-if(!/created:/.test(fm)) probs.push("metadata.created: brak");
-if(!/origin-project:/.test(fm)) probs.push("metadata.origin-project: brak");
-const traces=[];
-if(/[A-Za-z]:\\|\/(home|Users)\//.test(body)) traces.push("sciezka absolutna");
-if(/\b(npm|yarn|pnpm)\s+(run\s+)?\S+/.test(body)) traces.push("skrypt npm/yarn/pnpm");
-if(/\b(react|vue|angular|django|rails|spring|laravel|next\.js)\b/i.test(body)) traces.push("nazwa frameworka");
-console.log(probs.length?("FRONTMATTER — PROBLEMY:\n- "+probs.join("\n- ")):"FRONTMATTER OK");
-console.log(traces.length?("SLADY PROJEKTU (sygnal -> rozwaz projektowy):\n- "+traces.join("\n- ")):"BRAK sladow projektu");
-' "<sciezka-do-SKILL.md>"
+**Zapisz walidator do pliku** (np. `validate-skill.mjs` w scratchpadzie) i uruchom
+`node validate-skill.mjs <ścieżka-do-SKILL.md>`. **NIE wklejaj inline w `node -e "..."`** — regex
+`[A-Za-z]:\\` (wykrycie ścieżki Windows) zawiera `\\`, które powłoka w double-quoted stringu na
+Windows zjada → `SyntaxError: Invalid regular expression`. Plik `.mjs` całkowicie omija quoting
+powłoki (działa identycznie na Windows/Linux/macOS).
+
+```js
+import { readFileSync } from "node:fs";
+const t = readFileSync(process.argv[2], "utf8");
+const fm = (t.match(/^---\r?\n([\s\S]*?)\r?\n---/) || [, ""])[1];
+const body = t.replace(/^---\r?\n[\s\S]*?\r?\n---/, "");
+const probs = [];
+const name = (fm.match(/^name:\s*(.+)$/m) || [])[1];
+if (!name || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name.trim())) probs.push("name: brak lub nie-kebab");
+const desc = (fm.match(/^description:\s*(.+)$/m) || [])[1];
+if (!desc) { probs.push("description: brak"); }
+else { const d = desc.trim(); if (d.length > 60) probs.push("description: >60 (" + d.length + ")"); if (!d.endsWith(".")) probs.push("description: bez kropki na koncu"); }
+if (!/origin:\s*reflect-loop/.test(fm)) probs.push("metadata.origin: brak reflect-loop");
+if (!/created:/.test(fm)) probs.push("metadata.created: brak");
+if (!/origin-project:/.test(fm)) probs.push("metadata.origin-project: brak");
+const traces = [];
+if (/[A-Za-z]:\\|\/(home|Users)\//.test(body)) traces.push("sciezka absolutna");
+if (/\b(npm|yarn|pnpm)\s+(run\s+)?\S+/.test(body)) traces.push("skrypt npm/yarn/pnpm");
+if (/\b(react|vue|angular|django|rails|spring|laravel|next\.js)\b/i.test(body)) traces.push("nazwa frameworka");
+console.log(probs.length ? ("FRONTMATTER — PROBLEMY:\n- " + probs.join("\n- ")) : "FRONTMATTER OK");
+console.log(traces.length ? ("SLADY PROJEKTU (sygnal -> rozwaz projektowy):\n- " + traces.join("\n- ")) : "BRAK sladow projektu");
 ```
 
 Kolizja nazw — przy zapisie skilla PROJEKTOWEGO potwierdź, czy globalny o tej nazwie istnieje:
