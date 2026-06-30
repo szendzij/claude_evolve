@@ -30,6 +30,50 @@ umieścić** — i który z czasem poprawia istniejące procedury. Tym mechanizm
 
 ---
 
+## Czym to różni się od wbudowanej pamięci Claude Code
+
+Łatwo pomylić ten plugin z tym, co Claude Code zapisuje sam w `~/.claude/projects/`. To dwie
+różne warstwy: jedna **przechowuje**, druga **myśli o tym, co przechować**.
+
+### Co Claude Code robi sam (w `~/.claude/projects/<slug>/`)
+
+Jeden katalog na projekt (slug = ścieżka projektu z zamienionymi `\` / `:` na `-`). Mieszka w nim:
+
+| Co | Plik | Charakter |
+|---|---|---|
+| **Transkrypty sesji** | `<session-id>.jsonl` | surowy, append-only log **wszystkiego**: prompty, tryby, wyjścia hooków, wywołania narzędzi |
+| Transkrypty subagentów | `<session-id>/subagents/` | to samo, dla delegowanych agentów |
+| **Magazyn pamięci** | `memory/` + `MEMORY.md` | miejsce na trwałe notatki + indeks ładowany na starcie sesji |
+
+Transkrypty `.jsonl` to **wbudowana pamięć epizodyczna**: z nich działa `--resume`, `--continue`
+i kompaktowanie kontekstu. Są kompletne, ale **całkowicie pasywne** — to czarna skrzynka, nikt
+ich proaktywnie nie czyta, Claude sam z siebie nie wyciągnie z nich wniosku tydzień później.
+Magazyn `memory/` to z kolei jeden, **niezróżnicowany worek** na notatki: bez decyzji, co tam
+trafia i czy wpis jest jeszcze aktualny.
+
+Podsumowując, goły Claude Code daje **storage + karteczkę na monitorze**. Nie ma w tym żadnej
+kognicji: nic nie decyduje, co warto zapisać, nic nie dojrzewa, nic nie jest wycofywane.
+
+### Co dokłada ten plugin
+
+Plugin to **warstwa decyzyjna nad tym magazynem** — zamyka pętlę, której natywny mechanizm nie ma:
+
+- **Routing wiedzy** — każdy wniosek trafia do *właściwej* warstwy (fakt → `memory/`, procedura →
+  skill, handoff → `.remember/`), zamiast do jednego worka. Patrz „Konstytucja Pamięci" niżej.
+- **`/reflect`** — sortownia na koniec sesji. Goły Claude tego nie robi: sesja po prostu znika do `.jsonl`.
+- **Pętla dojrzewania skilli** — `FRICTION.md` (dowód, że skill zawiódł) → `/skill-review` (poprawka
+  oparta wyłącznie na dowodzie) → `RESOLVED.md` (czy fix się utrzymał, flaga nawrotu) → `/curator`
+  (archiwizuje martwe). To sprzężenie zwrotne „błąd → poprawka → weryfikacja" w natywnej pamięci **nie istnieje**.
+- **Inteligentne przywołanie** — hook `memory-retrieval` **rankuje i wstrzykuje top-N** faktów
+  istotnych dla bieżącego kontekstu, zamiast biernie czekać, aż ktoś sięgnie do magazynu.
+
+> **W jednym zdaniu:** `~/.claude/projects/` to **bierna pamięć Claude Code** (pełen log + zwykły
+> magazyn notatek). Ten plugin to **bibliotekarz** nad tym magazynem: decyduje co zachować i w której
+> warstwie, zamienia powtarzalne procedury w skille i utrzymuje je w cyklu życia. **Claude Code daje
+> pamięć; plugin daje uczenie się.**
+
+---
+
 ## Słownik pojęć (przeczytaj raz, dalej będzie jasne)
 
 | Pojęcie | Co to dokładnie jest |
@@ -318,7 +362,11 @@ Format wpisu tarcia:
 /plugin install learning-loop@claude_evolve
 ```
 
-**Wersja 1.4.1** (patch na 1.4.0). 1.4.0 domknęło czterowarstwową pętlę: SessionStart retrieval
+**Wersja 1.4.6.** Wydania 1.4.2–1.4.6 to iteracje patch: odroczony `reflection-gate` (znacznik
+pending-reflect zamiast blokady terminala), raport footprintu tokenów (Stop hook), wykluczenie
+silnika z własnej pętli (skille `reflect`/`skill-review`/`curator` nigdy nie są jej przedmiotem),
+fixy `/reflect` (handoff first-use, quoting walidatora na Windows) oraz sekcja README o różnicy
+względem natywnej pamięci Claude Code. Fundamentem jest 1.4.0, które domknęło czterowarstwową pętlę: SessionStart retrieval
 (`memory-retrieval`), integralność wejścia (trigger na nieprzetworzonych kandydaturach + filtr
 szumu), sygnały zdrowia cyklu skilli (pending-friction w `/curator`, priorytet recydywy
 w `/skill-review`) oraz warstwę outcome (`RESOLVED.md` + raport held/recurred jako ewidencja, że
