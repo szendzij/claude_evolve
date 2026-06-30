@@ -33,12 +33,13 @@ nie skaził projektu B.
         ▼
  /reflect        sortuje wnioski:  fakt          → pamięć per-projekt
         │                          procedura     → skill (projektowy/globalny)
+        │                          reguła        → .claude/rules/reflect-loop.md
         │                          handoff       → .remember/remember.md
         │                          tarcie skilla → <skill>/FRICTION.md
         ▼
  /skill-review   dowód z FRICTION.md  →  poprawka SKILL.md   (tylko gdy jest dowód)
         ▼
- /curator        archiwizuje martwe auto-skille (mtime > 30 dni; nigdy nie kasuje)
+ /curator        archiwizuje auto-skille (mtime > 30 dni) i reguły wg wieku; nigdy nie kasuje
 ```
 
 Cykl życia skilla: **`/reflect` rodzi → `/skill-review` dojrzewa → `/curator` archiwizuje.**
@@ -47,9 +48,9 @@ Cykl życia skilla: **`/reflect` rodzi → `/skill-review` dojrzewa → `/curato
 
 | Element | Rola |
 |---|---|
-| `/reflect` | Sortownia wiedzy na koniec sesji. Każdy trwały wniosek kieruje do właściwej warstwy (fakt → pamięć per-projekt, procedura → skill, handoff, tarcie → `FRICTION.md`). |
+| `/reflect` | Sortownia wiedzy na koniec sesji. Każdy trwały wniosek kieruje do właściwej warstwy (fakt → pamięć per-projekt, procedura → skill, reguła → `.claude/rules/`, handoff, tarcie → `FRICTION.md`). |
 | `/skill-review` | Warsztat. Zamienia zebrane tarcie (`FRICTION.md`) w konkretne poprawki `SKILL.md`. **Evidence-only**: bez zaobserwowanego dowodu — żadnej zmiany. |
-| `/curator` | Sprzątaczka. Archiwizuje (odwracalnie, **nigdy nie kasuje**) auto-skille nieruszane > 30 dni. |
+| `/curator` | Sprzątaczka. Archiwizuje (odwracalnie, **nigdy nie kasuje**) auto-skille nieruszane > 30 dni; raportuje też reguły behawioralne wg wieku markera i archiwizuje je poza `rules/`. |
 | Stop hook | Cichy strażnik — **odracza** `/reflect`: zamiast przerywać terminal, zapisuje znacznik `pending-reflect` (otagowany `cwd`), który `memory-retrieval` pokazuje na starcie kolejnej sesji projektu. OS-niezależny (czysty `node`). |
 
 ### Zasada nadrzędna
