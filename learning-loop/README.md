@@ -110,7 +110,7 @@ to należy?** Warstwy nie konkurują — każda przechowuje inny rodzaj wiedzy i
 Piąta warstwa to **reguła behawioralna** — trwała dyrektywa „rób / nie rób":
 
 - **Reguła behawioralna** → `.claude/rules/reflect-loop.md` (auto-load Claude Code, bez `@import`).
-  Trwała dyrektywa „rób / nie rób", ładowana **gwarantowanie co sesję** — w przeciwieństwie do faktu,
+  Trwała dyrektywa „rób / nie rób", ładowana **bezwarunkowo co sesję** — w przeciwieństwie do faktu,
   który podlega rankowanemu recall. `/reflect` ją zapisuje (za potwierdzeniem), `/curator` raportuje
   po wieku i archiwizuje do `.claude/rules-archive/` (poza drzewem auto-load).
 
@@ -355,7 +355,7 @@ Format wpisu tarcia:
 | Semantyczna | trwałe fakty | `~/.claude/projects/<hash>/memory/` (per-projekt) |
 | Proceduralna (projekt) | procedury projektowe | `.claude/skills/` |
 | Proceduralna (globalna) | procedury przenośne | `~/.claude/skills/` |
-| Reguła (behawioralna) | trwałe dyrektywy „rób/nie rób" | `.claude/rules/reflect-loop.md` (auto-load); archiwum `.claude/rules-archive/` |
+| Reguła behawioralna | trwałe dyrektywy „rób/nie rób" | `.claude/rules/reflect-loop.md` (auto-load); archiwum `.claude/rules-archive/` |
 | Tarcie | dowód do poprawki | `<skill>/FRICTION.md` |
 | Outcome | czy naprawa skilla się utrzymała | `<skill>/RESOLVED.md` (held/recurred) → raport `/curator` |
 | Przejściowa | handoff | `.remember/remember.md` |

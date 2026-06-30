@@ -51,7 +51,7 @@ kroków; skill = procedura z krokami.
 3. **Procedury → skille** (patrz Bramka skilla).
 4. **Korekty behawioralne → reguły** (patrz Bramka reguły). Trwałą dyrektywę „rób / nie rób X"
    zapisz jako regułę w `.claude/rules/reflect-loop.md`, NIE jako fakt — reguła ładuje się
-   gwarantowanie co sesję, fakt podlega rankowanemu recall. Zapis dopiero po potwierdzeniu diffa.
+   bezwarunkowo co sesję, fakt podlega rankowanemu recall. Zapis dopiero po potwierdzeniu diffa.
 5. **Handoff** (tylko jeśli używasz `remember`/`.remember/`): zaktualizuj
    `.remember/remember.md` — **jeśli plik istnieje, wczytaj i zaktualizuj; jeśli NIE istnieje
    (first-use w projekcie), utwórz go zapisem (Write), NIE Read** (Read na nieistniejącym pliku
