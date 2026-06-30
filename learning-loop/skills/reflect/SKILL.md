@@ -34,23 +34,31 @@ Awans na globalny to rzadki wyjątek (patrz Bramka skilla, Etap 2).
 | Co działo się w sesji (przebieg) | Epizodyczna | `remember` / `.remember/` (jeśli masz) |
 | Trwały fakt | Semantyczna | pamięć per-projekt (patrz Fakty) |
 | Powtarzalna procedura | Proceduralna | skill (patrz Bramka skilla) |
+| Trwała korekta behawioralna | Reguła | `.claude/rules/reflect-loop.md` (patrz Bramka reguły) |
 | Co dalej w następnej sesji | Przejściowa | `.remember/remember.md` (handoff) |
 
 Reguła rozstrzygająca: *Czy to przyda się za tydzień w innej sesji?* Nie → zostaw
 warstwie epizodycznej. Tak, fakt → pamięć. Tak, procedura → skill.
+
+Fakt vs reguła: *Czy to MUSI zadziałać za każdym razem (→ reguła), czy wystarczy, że
+przypomni się, gdy istotne (→ fakt)?* Reguła vs skill: reguła = dyrektywa zachowania bez
+kroków; skill = procedura z krokami.
 
 ## Procedure
 
 1. **Przejrzyj sesję.** Co zrobiłeś, co zadziałało, co było nieoczywiste, jakie decyzje.
 2. **Fakty → pamięć per-projekt** (patrz Fakty).
 3. **Procedury → skille** (patrz Bramka skilla).
-4. **Handoff** (tylko jeśli używasz `remember`/`.remember/`): zaktualizuj
+4. **Korekty behawioralne → reguły** (patrz Bramka reguły). Trwałą dyrektywę „rób / nie rób X"
+   zapisz jako regułę w `.claude/rules/reflect-loop.md`, NIE jako fakt — reguła ładuje się
+   gwarantowanie co sesję, fakt podlega rankowanemu recall. Zapis dopiero po potwierdzeniu diffa.
+5. **Handoff** (tylko jeśli używasz `remember`/`.remember/`): zaktualizuj
    `.remember/remember.md` — **jeśli plik istnieje, wczytaj i zaktualizuj; jeśli NIE istnieje
    (first-use w projekcie), utwórz go zapisem (Write), NIE Read** (Read na nieistniejącym pliku
    pada). Jeśli nie używasz tej warstwy — pomiń krok.
    **Wyczyść znaczniki pending-reflect** tego projektu (komenda niżej) — `reflection-gate`
    zapisuje je odroczone (zamiast przerywać sesję), a ten krok zamyka pętlę po refleksji.
-5. **Atrybucja kandydatur tarcia (auto-capture).** Hook `friction-capture` zapisał surowe
+6. **Atrybucja kandydatur tarcia (auto-capture).** Hook `friction-capture` zapisał surowe
    awarie narzędzi tej sesji. Wczytaj najświeższy plik kandydatur (komenda niżej) i dla
    KAŻDEGO wpisu oceń — znając kontekst sesji i to, których skilli FAKTYCZNIE użyłeś:
    - **Realne tarcie powiązane z użytym skillem** → dopisz wpis do właściwego
@@ -62,7 +70,7 @@ warstwie epizodycznej. Tak, fakt → pamięć. Tak, procedura → skill.
 
    To TY przypisujesz (hook tego nie robi — nie zna aktywnego skilla). Po przetworzeniu
    oznacz plik jako `.processed` (komenda niżej) — odwracalnie, by nie przerabiać go ponownie.
-6. **Tarcie ze skilli (capture).** Dla skilli, których FAKTYCZNIE użyłeś w tej sesji
+7. **Tarcie ze skilli (capture).** Dla skilli, których FAKTYCZNIE użyłeś w tej sesji
    i które pokazały tarcie: dopisz wpis do `<skill-dir>/FRICTION.md`. Tylko realne
    tarcie z tej sesji. **NIE dotyczy skilli silnika** (patrz **Wykluczenie silnika**).
    Naprawia `/skill-review`. Format:
@@ -72,7 +80,7 @@ warstwie epizodycznej. Tak, fakt → pamięć. Tak, procedura → skill.
    - **actual:** <co faktycznie wyszło / dlaczego zawiodło>
    - **fix-hint:** <opcjonalnie>
    ```
-7. **Detekcja nawrotu (outcome).** Dla KAŻDEGO tarcia przypisanego do skilla w krokach 5–6:
+8. **Detekcja nawrotu (outcome).** Dla KAŻDEGO tarcia przypisanego do skilla w krokach 6–7:
    sprawdź `<skill>/RESOLVED.md` (jeśli istnieje). Jeśli nowe tarcie to **nawrót** rozwiązanego
    wcześniej (osąd: podobne `was`):
    - w `RESOLVED.md` zmień tę pozycję `- **status:** held` → `- **status:** recurred <YYYY-MM-DD>`,
@@ -106,7 +114,7 @@ fs.renameSync(p,p+".processed");console.log("oznaczono:",p+".processed");
 ' "<sciezka-pliku-z-PLIK:>"
 ```
 
-## Komenda — wyczyść pending-reflect (krok 4)
+## Komenda — wyczyść pending-reflect (krok 5)
 
 `reflection-gate` odracza nudge: zamiast przerywać Stop, zapisuje znacznik
 `~/.claude/learning-loop/pending-reflect/<sid>.json`. Po zakończonej refleksji usuń
@@ -249,6 +257,36 @@ console.log(fs.existsSync(g)?("KOLIZJA: globalny \""+name+"\" istnieje -> przebi
 ' "<nazwa>"
 ```
 
+## Bramka reguły (behavioral rule)
+
+Reguła = trwała **dyrektywa zachowania** ładowana co sesję (auto-load `.claude/rules/`),
+nie rankowany fakt i nie procedura. Twórz regułę TYLKO gdy WSZYSTKIE 3:
+1. **Powtarzalna** — korekta wróci w innych sesjach.
+2. **Nieoczywista** — nie wynika trywialnie z dokumentacji / zdrowego rozsądku.
+3. **Dyrektywa, nie fakt, nie procedura** — „rób / nie rób X", bez kroków proceduralnych
+   (te → skill) i bez deklaratywnej treści tylko do przypomnienia (ta → fakt).
+
+Nie spełnia → zapisz jako fakt lub skill, NIE jako regułę.
+
+**Zasięg.** Default **projektowy** (`.claude/rules/reflect-loop.md`). Awans na globalny
+(`~/.claude/rules/reflect-loop.md`) tylko gdy WSZYSTKIE 3 warunki jak przy skillu: brak śladów
+projektu, tylko uniwersalne narzędzia/koncepty, afirmatywny osąd przydatności gdzie indziej.
+
+**Format wpisu** — dopisz blok na końcu pliku (utwórz katalog `.claude/rules/` i plik, jeśli brak):
+```
+<!-- reflect-loop: added YYYY-MM-DD -->
+- <reguła w trybie rozkazującym, jedno zdanie>
+```
+Marker `added` to per-regułowy sygnał wieku dla `/curator` (reguła nie ma mtime jak skill).
+
+**Inwarianty:**
+- **Nie-destrukcyjnie:** proponujesz diff, zapisujesz dopiero po potwierdzeniu usera.
+- **Dedup (anty-szum):** przed dopisaniem przeczytaj `reflect-loop.md`; reguła o tej samej
+  intencji już istnieje → pomiń lub scal, nie duplikuj.
+- **Wykluczenie silnika:** żadnych reguł o `reflect`/`skill-review`/`curator`.
+- **Tylko loop-owned plik:** nigdy nie dotykasz `CLAUDE.md` ani ręcznych reguł usera. Auto-load
+  `.claude/rules/` gwarantuje załadowanie, więc to nie zapis-widmo nawet bez żadnego CLAUDE.md.
+
 ## Verification
 
 - Każdy nowy plik pamięci ma odpowiadającą linię w `MEMORY.md`.
@@ -258,3 +296,4 @@ console.log(fs.existsSync(g)?("KOLIZJA: globalny \""+name+"\" istnieje -> przebi
 - Heurystyka śladów projektu uruchomiona; ślady wzięte pod uwagę w Etapie 2 bramki.
 - Wpisy `FRICTION.md` mają `expected` i `actual`.
 - Nawrót rozwiązanego tarcia: odpowiednia pozycja w `<skill>/RESOLVED.md` oznaczona `recurred <data>` + jawny sygnał „fix się nie utrzymał".
+- Nowa reguła: blok z markerem `<!-- reflect-loop: added <data> -->` w `.claude/rules/reflect-loop.md`, zapisany po potwierdzeniu; dedup sprawdzony; brak reguł o skillach silnika.
