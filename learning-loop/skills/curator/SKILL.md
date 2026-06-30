@@ -33,6 +33,11 @@ przenosi do archiwum **poza drzewem odkrywania** (odwracalnie). Obejmuje skille 
 - `pinned: true` w metadata → skill wyłączony z każdej tranzycji.
 - Bez LLM-review treści skilla. Decyzja usera na podstawie raportu.
 - **Pending-friction obok mtime:** raport pokazuje liczbę ważnych wpisów `FRICTION.md` (`Nf`, flaga `!` gdy >0). Skille z `Nf>0` przejrzyj **niezależnie od mtime** — świeży mtime może maskować skill chronicznie łatany.
+- **Reguły reflect-loop:** raportujesz też reguły z `.claude/rules/reflect-loop.md` (projekt) i
+  `~/.claude/rules/reflect-loop.md` (global). Reguła NIE ma sygnału użycia ani mtime — jedyny
+  mierzalny sygnał to **wiek** z markera `added`, **sprzeczność** z nowszą regułą i **redundancja**
+  (zachowanie wchłonięte przez skill). To przypomnienia do przeglądu, nie wyrok. Wykluczenie silnika
+  obowiązuje. Archiwum reguł → `.claude/rules-archive/` (POZA `rules/`, inaczej nadal się auto-loaduje).
 
 ## Procedure
 
@@ -79,6 +84,43 @@ if(!rows.length) console.log("(brak auto-skilli)");
 
 Uwaga: zamiast `⚠` użyto ASCII `!` jako flagi, by snippet pozostał ASCII-safe wewnątrz `node -e`
 na Windows Git Bash; w prozie nazywamy ją „flagą pending-friction".
+
+## Raport reguł (reflect-loop.md)
+
+Reguły z pętli żyją w `.claude/rules/reflect-loop.md` (auto-load) i nie mają mtime. Raportuj je
+po **wieku** markera `added` (próg N=30 dni → flaga `!` „przejrzyj, czy nadal aktualna"). Dodatkowo
+osądź **sprzeczność** (nowsza reguła znosi starszą) i **redundancję** (zachowanie reguły trafiło już
+do skilla) — to realne sygnały do wycofania. Nigdy nie wycofujesz automatycznie.
+
+```
+node -e '
+const fs=require("fs"),path=require("path"),os=require("os");
+const now=Date.now(), DAY=864e5, AGE=30;
+const roots=[["global",path.join(os.homedir(),".claude","rules","reflect-loop.md")],
+             ["project",path.join(process.cwd(),".claude","rules","reflect-loop.md")]];
+let total=0;
+for(const [scope,f] of roots){
+  if(!fs.existsSync(f)) continue;
+  const txt=fs.readFileSync(f,"utf8");
+  const re=/<!--\s*reflect-loop:\s*added\s*(\d{4}-\d{2}-\d{2})\s*-->\s*\r?\n([^\r\n]*)/g;
+  let m;
+  while((m=re.exec(txt))){
+    const age=Math.floor((now-Date.parse(m[1]))/DAY);
+    console.log(`${age>=AGE?"!":" "} [${scope}] ${m[1]} (${age}d)  ${m[2].trim().slice(0,70)}`);
+    total++;
+  }
+}
+if(!total) console.log("(brak regul reflect-loop)");
+else console.log("\n! = starsza niz "+AGE+"d -> przejrzyj, czy nadal aktualna (przypomnienie, nie wyrok).");
+'
+```
+
+**Wycofanie reguły (odwracalne, za potwierdzeniem).** Gdy user potwierdzi wycofanie wybranej reguły:
+1. Utwórz `.claude/rules-archive/` (jeśli brak) — POZA `.claude/rules/`, więc archiwum NIE auto-loaduje.
+2. Przenieś blok reguły (marker `added` + linia) z `reflect-loop.md` do `rules-archive/reflect-loop.md`,
+   dopisując na końcu bloku linię `<!-- archived: YYYY-MM-DD -->`.
+3. Usuń ten blok z `reflect-loop.md`.
+Przywrócenie = przeniesienie bloku z powrotem. NIGDY nie kasujesz reguły bezpowrotnie.
 
 ## Komenda pomocnicza — archiwizuj jeden skill (odwracalnie, poza root)
 
@@ -219,3 +261,4 @@ if(EV>0) console.log("held >=30d = kandydat na dowod zmiany zachowania (T8).");
 - Pliki w archiwum dają się przywrócić (przeniesienie z powrotem).
 - Raport pokazuje kolumnę `Nf` (ważne pending wpisy: expected ∧ actual ∧ ¬won't-fix) i flagę `!` przy `Nf>0`; sort wg mtime rosnąco zachowany.
 - Raport outcome liczy `held`/`recurred` z `RESOLVED.md` (bloki `split(/^##\s/m).slice(1)`); `held ≥30d` zliczone jako T8-evidence; noty recurred/evidence pojawiają się warunkowo.
+- Raport reguł listuje wpisy `reflect-loop.md` (oba korzenie) po wieku markera `added`; flaga `!` przy ≥30d; brak pliku → „(brak regul reflect-loop)". Wycofana reguła ląduje w `.claude/rules-archive/` (poza auto-load), odwracalnie; żadna reguła nie jest kasowana bezpowrotnie.
